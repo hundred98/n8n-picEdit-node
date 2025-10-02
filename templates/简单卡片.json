@@ -1,0 +1,50 @@
+{
+  "name": "简单卡片",
+  "width": 600,
+  "height": 400,
+  "background": "lightyellow",
+  "elements": [
+    {
+      "type": "text",
+      "position": [
+        300,
+        50
+      ],
+      "text": "卡片标题",
+      "font_size": 36,
+      "color": "darkblue",
+      "alignment": "center"
+    },
+    {
+      "type": "text",
+      "position": [
+        300,
+        120
+      ],
+      "text": "这里是卡片内容，可以自定义修改",
+      "font_size": 24,
+      "color": "black",
+      "alignment": "center"
+    },
+    {
+      "type": "image",
+      "position": [
+        250,
+        180
+      ],
+      "image_path": "example_image.jpg",
+      "scale": 0.4
+    },
+    {
+      "type": "text",
+      "position": [
+        300,
+        350
+      ],
+      "text": "底部信息",
+      "font_size": 18,
+      "color": "gray",
+      "alignment": "center"
+    }
+  ]
+}
