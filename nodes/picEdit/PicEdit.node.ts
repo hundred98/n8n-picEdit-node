@@ -1,13 +1,16 @@
-import { IExecuteFunctions } from 'n8n-workflow';
+ import { IExecuteFunctions } from 'n8n-workflow';
 import { INodeExecutionData, INodeType, INodeTypeDescription, NodeExecutionWithMetadata, NodeOperationError } from 'n8n-workflow';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import csvParser = require('csv-parser');
+const sharp = require('sharp');
+const mimeTypes = require('mime-types');
+const { v4: uuidv4 } = require('uuid');
 
 export class PicEdit implements INodeType {
     description: INodeTypeDescription = {
-        displayName: 'PicEdit',
+        displayName: 'Pic Edit',
         name: 'picEdit',
         icon: 'file:picEdit.svg',
         group: ['transform'],
@@ -40,8 +43,56 @@ export class PicEdit implements INodeType {
                         value: 'addImage',
                         description: 'Add image to canvas',
                     },
+
                 ],
                 default: 'createCanvas',
+            },
+            {
+                displayName: 'Output Format',
+                name: 'outputFormat',
+                type: 'options',
+                options: [
+                    {
+                        name: 'PNG',
+                        value: 'png',
+                    },
+                    {
+                        name: 'JPEG',
+                        value: 'jpeg',
+                    },
+                    {
+                        name: 'WEBP',
+                        value: 'webp',
+                    },
+                ],
+                default: 'png',
+                description: 'Output image format',
+            },
+            {
+                displayName: 'Quality',
+                name: 'quality',
+                type: 'number',
+                displayOptions: {
+                    show: {
+                        outputFormat: [
+                            'jpeg',
+                            'webp',
+                        ],
+                    },
+                },
+                typeOptions: {
+                    minValue: 1,
+                    maxValue: 100,
+                },
+                default: 90,
+                description: 'Image quality (1-100)',
+            },
+            {
+                displayName: 'Field Name',
+                name: 'fieldName',
+                type: 'string',
+                default: 'data',
+                description: 'Name of the field in the binary output',
             },
 
             // Create Canvas
@@ -144,9 +195,23 @@ export class PicEdit implements INodeType {
                 description: 'Path to the background image',
             },
 
-            // Add Text
+            {
+                displayName: 'Input Binary Field Name',
+                name: 'inputBinaryField',
+                type: 'string',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'addText',
+                        ],
+                    },
+                },
+                default: '',
+                description: 'Name of the binary field containing the input image (leave empty to use JSON canvas data)',
+            },
             {
                 displayName: 'Text Source',
+
                 name: 'textSource',
                 type: 'options',
                 displayOptions: {
@@ -275,9 +340,9 @@ export class PicEdit implements INodeType {
                 description: 'Font name (leave empty for default font)',
             },
             {
-                displayName: 'Alignment',
-                name: 'alignment',
-                type: 'options',
+                displayName: 'Rotation',
+                name: 'rotationAngle',
+                type: 'number',
                 displayOptions: {
                     show: {
                         operation: [
@@ -288,22 +353,33 @@ export class PicEdit implements INodeType {
                         ],
                     },
                 },
-                options: [
-                    {
-                        name: 'Left',
-                        value: 'left',
+                typeOptions: {
+                    minValue: -360,
+                    maxValue: 360,
+                },
+                default: 0,
+                description: 'Text rotation angle in degrees',
+            },
+            {
+                displayName: 'Opacity',
+                name: 'opacity',
+                type: 'number',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'addText',
+                        ],
+                        textSource: [
+                            'manual',
+                        ],
                     },
-                    {
-                        name: 'Center',
-                        value: 'center',
-                    },
-                    {
-                        name: 'Right',
-                        value: 'right',
-                    },
-                ],
-                default: 'left',
-                description: 'Text alignment',
+                },
+                typeOptions: {
+                    minValue: 0,
+                    maxValue: 255,
+                },
+                default: 255,
+                description: 'Text opacity (0-255, where 255 is fully opaque)',
             },
             {
                 displayName: 'CSV File Path',
@@ -341,6 +417,20 @@ export class PicEdit implements INodeType {
             },
 
             // Add Image
+            {
+                displayName: 'Input Binary Field Name',
+                name: 'inputBinaryField',
+                type: 'string',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'addImage',
+                        ],
+                    },
+                },
+                default: '',
+                description: 'Name of the binary field containing the input image (leave empty to use JSON canvas data)',
+            },
             {
                 displayName: 'Image Path',
                 name: 'overlayImagePath',
@@ -439,9 +529,28 @@ export class PicEdit implements INodeType {
                     result = await addImage.call(this, i, items[i].json);
                 }
 
-                returnItems.push({
-                    json: result,
-                });
+                const binaryResult = await convertToBinary.call(this, i, result);
+                const fieldName = this.getNodeParameter('fieldName', i) as string;
+
+                const finalItem: INodeExecutionData = {
+                    json: {
+                        success: true,
+                        message: result?.message || 'Canvas created and converted to binary successfully',
+                        fileInfo: binaryResult.fileInfo,
+                        debug: result?.debug || undefined
+                    },
+                    binary: {
+                        [fieldName]: {
+                            data: binaryResult.buffer.toString('base64'),
+                            mimeType: binaryResult.fileInfo.mimeType,
+                            fileName: binaryResult.fileInfo.fileName,
+                            fileExtension: binaryResult.fileInfo.fileExtension,
+                            fileSize: binaryResult.fileInfo.fileSize
+                        }
+                    }
+                };
+
+                returnItems.push(finalItem);
             } catch (error: any) {
                 if (this.continueOnFail()) {
                     returnItems.push({
@@ -481,43 +590,91 @@ async function createCanvas(this: IExecuteFunctions, itemIndex: number): Promise
         };
     } else {
         const imagePath = this.getNodeParameter('imagePath', itemIndex) as string;
-        // 处理中文路径，确保路径编码正确
-        let processedImagePath = imagePath;
+        
+        let imageBuffer: Buffer;
+        let imageMetadata: any;
         try {
-            // 规范化路径分隔符
-            processedImagePath = path.normalize(imagePath);
-            // 检查文件是否存在
-            if (!fs.existsSync(processedImagePath)) {
-                throw new NodeOperationError(this.getNode(), `Background image file not found: ${processedImagePath}`);
+            if (!fs.existsSync(imagePath)) {
+                throw new NodeOperationError(this.getNode(), `Background image file not found: ${imagePath}`);
             }
+            
+            const stats = fs.statSync(imagePath);
+            if (stats.isDirectory()) {
+                throw new NodeOperationError(this.getNode(), `Path is a directory, not a file: ${imagePath}`);
+            }
+            if (!stats.isFile()) {
+                throw new NodeOperationError(this.getNode(), `Path does not point to a regular file: ${imagePath}`);
+            }
+            
+            imageBuffer = fs.readFileSync(imagePath);
+            imageMetadata = await sharp(imageBuffer).metadata();
         } catch (error: any) {
-            throw new NodeOperationError(this.getNode(), `Invalid background image path: ${imagePath}. Error: ${error.message}`);
+            throw new NodeOperationError(this.getNode(), `无法读取图片文件: ${imagePath}. Error: ${error.message}`);
         }
         
         config.canvas = {
-            width: 800,
-            height: 600,
-            backgroundImage: processedImagePath,
-            backgroundMode: 'resize'
+            width: imageMetadata.width || 800,
+            height: imageMetadata.height || 600,
+            backgroundImageData: imageBuffer.toString('base64'),
+            backgroundMode: 'original'
         };
     }
 
     const result = await executePythonScript(config);
+    
+    if (result.success) {
+        result.canvas = config.canvas;
+        result.elements = config.elements;
+    }
+    
     return result;
 }
 
 async function addText(this: IExecuteFunctions, itemIndex: number, inputData: any): Promise<any> {
+    const inputBinaryField = this.getNodeParameter('inputBinaryField', itemIndex) as string;
     const textSource = this.getNodeParameter('textSource', itemIndex) as string;
-    const config: any = {
+    
+    let config: any = {
         mode: 'config',
-        canvas: inputData.canvas || {
+        canvas: {},
+        elements: [],
+        outputFormat: 'base64'
+    };
+
+    if (inputBinaryField && inputBinaryField.trim() !== '') {
+        const items = this.getInputData();
+        const currentItem = items[itemIndex];
+        
+        if (!currentItem.binary || !currentItem.binary[inputBinaryField]) {
+            throw new NodeOperationError(this.getNode(), `Binary field '${inputBinaryField}' not found in input data`);
+        }
+        
+        const binaryData = currentItem.binary[inputBinaryField];
+        const imageBuffer = Buffer.from(binaryData.data, 'base64');
+        
+        let imageMetadata: any;
+        try {
+            imageMetadata = await sharp(imageBuffer).metadata();
+        } catch (error: any) {
+            throw new NodeOperationError(this.getNode(), `Failed to read binary image metadata: ${error.message}`);
+        }
+        
+        config.canvas = {
+            width: imageMetadata.width || 800,
+            height: imageMetadata.height || 600,
+            backgroundImageData: imageBuffer.toString('base64'),
+            backgroundMode: 'original'
+        };
+        config.elements = [];
+        
+    } else {
+        config.canvas = inputData.canvas || {
             width: 800,
             height: 600,
             backgroundColor: '#ffffff'
-        },
-        elements: inputData.elements || [],
-        outputFormat: 'base64'
-    };
+        };
+        config.elements = inputData.elements || [];
+    }
 
     if (textSource === 'manual') {
         config.elements.push({
@@ -530,19 +687,27 @@ async function addText(this: IExecuteFunctions, itemIndex: number, inputData: an
             fontSize: this.getNodeParameter('fontSize', itemIndex) as number,
             color: this.getNodeParameter('color', itemIndex) as string,
             fontName: this.getNodeParameter('fontName', itemIndex) as string || undefined,
-            alignment: this.getNodeParameter('alignment', itemIndex) as string,
+            rotation: this.getNodeParameter('rotationAngle', itemIndex) as number,
+            opacity: this.getNodeParameter('opacity', itemIndex) as number,
         });
     } else {
-        // Handle CSV input
         const csvFilePath = this.getNodeParameter('csvFilePath', itemIndex) as string;
-        // 处理中文路径，确保路径编码正确
         let processedCsvFilePath = csvFilePath;
         try {
-            // 规范化路径分隔符
-            processedCsvFilePath = path.normalize(csvFilePath);
-            // 检查文件是否存在
-            if (!fs.existsSync(processedCsvFilePath)) {
+            processedCsvFilePath = path.normalize(csvFilePath).replace(/\\/g, '/');
+            if (!fs.existsSync(processedCsvFilePath) && !fs.existsSync(csvFilePath)) {
                 throw new NodeOperationError(this.getNode(), `CSV file not found: ${processedCsvFilePath}`);
+            }
+            if (!fs.existsSync(processedCsvFilePath)) {
+                processedCsvFilePath = csvFilePath;
+            }
+            
+            const stats = fs.statSync(processedCsvFilePath);
+            if (stats.isDirectory()) {
+                throw new NodeOperationError(this.getNode(), `Path is a directory, not a file: ${processedCsvFilePath}`);
+            }
+            if (!stats.isFile()) {
+                throw new NodeOperationError(this.getNode(), `Path does not point to a regular file: ${processedCsvFilePath}`);
             }
         } catch (error: any) {
             throw new NodeOperationError(this.getNode(), `Invalid CSV file path: ${csvFilePath}. Error: ${error.message}`);
@@ -557,29 +722,65 @@ async function addText(this: IExecuteFunctions, itemIndex: number, inputData: an
 }
 
 async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: any): Promise<any> {
-    const config: any = {
+    const inputBinaryField = this.getNodeParameter('inputBinaryField', itemIndex) as string;
+    
+    let config: any = {
         mode: 'config',
-        canvas: inputData.canvas || {
-            width: 800,
-            height: 600,
-            backgroundColor: '#ffffff'
-        },
-        elements: inputData.elements || [],
+        canvas: {},
+        elements: [],
         outputFormat: 'base64'
     };
 
-    const overlayImagePath = this.getNodeParameter('overlayImagePath', itemIndex) as string;
-    // 处理中文路径，确保路径编码正确
-    let processedOverlayImagePath = overlayImagePath;
-    try {
-        // 规范化路径分隔符
-        processedOverlayImagePath = path.normalize(overlayImagePath);
-        // 检查文件是否存在
-        if (!fs.existsSync(processedOverlayImagePath)) {
-            throw new NodeOperationError(this.getNode(), `Overlay image file not found: ${processedOverlayImagePath}`);
+    if (inputBinaryField && inputBinaryField.trim() !== '') {
+        const items = this.getInputData();
+        const currentItem = items[itemIndex];
+        
+        if (!currentItem.binary || !currentItem.binary[inputBinaryField]) {
+            throw new NodeOperationError(this.getNode(), `Binary field '${inputBinaryField}' not found in input data`);
         }
+        
+        const binaryData = currentItem.binary[inputBinaryField];
+        const imageBuffer = Buffer.from(binaryData.data, 'base64');
+        
+        let imageMetadata: any;
+        try {
+            imageMetadata = await sharp(imageBuffer).metadata();
+        } catch (error: any) {
+            throw new NodeOperationError(this.getNode(), `Failed to read binary image metadata: ${error.message}`);
+        }
+        
+        config.canvas = {
+            width: imageMetadata.width || 800,
+            height: imageMetadata.height || 600,
+            backgroundImageData: imageBuffer.toString('base64'),
+            backgroundMode: 'original'
+        };
+        config.elements = [];
+        
+    } else {
+        config.canvas = inputData.canvas || {
+            width: 800,
+            height: 600,
+            backgroundColor: '#ffffff'
+        };
+        config.elements = inputData.elements || [];
+    }
+
+    const overlayImagePath = this.getNodeParameter('overlayImagePath', itemIndex) as string;
+    
+    let overlayImageData: string | undefined;
+    try {
+        if (!fs.existsSync(overlayImagePath)) {
+            throw new NodeOperationError(this.getNode(), `Overlay image file not found: ${overlayImagePath}`);
+        }
+        if (!fs.statSync(overlayImagePath).isFile()) {
+            throw new NodeOperationError(this.getNode(), `Path is not a file: ${overlayImagePath}`);
+        }
+        
+        const imageBuffer = fs.readFileSync(overlayImagePath);
+        overlayImageData = imageBuffer.toString('base64');
     } catch (error: any) {
-        throw new NodeOperationError(this.getNode(), `Invalid overlay image path: ${overlayImagePath}. Error: ${error.message}`);
+        throw new NodeOperationError(this.getNode(), `无法读取覆盖图片文件: ${overlayImagePath}. Error: ${error.message}`);
     }
 
     config.elements.push({
@@ -588,7 +789,7 @@ async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: a
             this.getNodeParameter('imagePositionX', itemIndex) as number,
             this.getNodeParameter('imagePositionY', itemIndex) as number
         ],
-        imagePath: processedOverlayImagePath,
+        imageData: overlayImageData,
         scale: this.getNodeParameter('scale', itemIndex) as number,
         rotation: this.getNodeParameter('rotation', itemIndex) as number,
     });
@@ -601,10 +802,8 @@ async function parseCsvFile(filePath: string): Promise<any[]> {
     return new Promise((resolve, reject) => {
         const elements: any[] = [];
         
-        require('fs').createReadStream(filePath)
-            .pipe(csvParser({
-                headers: ['text', 'position_x', 'position_y', 'font_size', 'color', 'font_name', 'alignment', 'rotation', 'opacity']
-            }))
+        require('fs').createReadStream(filePath, { encoding: 'utf8' })
+            .pipe(csvParser())
             .on('data', (row: any) => {
                 elements.push({
                     type: 'text',
@@ -616,7 +815,6 @@ async function parseCsvFile(filePath: string): Promise<any[]> {
                     fontSize: parseInt(row.font_size) || 24,
                     color: row.color || '#000000',
                     fontName: row.font_name || undefined,
-                    alignment: row.alignment || 'left',
                     rotation: parseFloat(row.rotation) || 0,
                     opacity: parseInt(row.opacity) || 255
                 });
@@ -632,40 +830,22 @@ async function parseCsvFile(filePath: string): Promise<any[]> {
 
 async function executePythonScript(config: any): Promise<any> {
     return new Promise((resolve, reject) => {
-        // 查找 Python 脚本的多种可能路径
-        const possiblePaths = [
-            // 开发环境路径
-            path.join(__dirname, '..', '..', 'python', 'wrapper.py'),
-            // 打包后在 dist 目录中的路径
-            path.join(__dirname, '..', 'python', 'wrapper.py'),
-            // 全局安装路径
-            path.join(__dirname, '..', '..', '..', 'python', 'wrapper.py')
+        const binaryPaths = [
+            path.join(__dirname, '..', '..', 'python', 'wrapper_binary.py'),
+            path.join(__dirname, '..', 'python', 'wrapper_binary.py'),
+            path.join(__dirname, '..', '..', '..', 'python', 'wrapper_binary.py')
         ];
-
+        
         let pythonScriptPath = '';
-        for (const possiblePath of possiblePaths) {
-            if (require('fs').existsSync(possiblePath)) {
-                pythonScriptPath = possiblePath;
+        for (const binaryPath of binaryPaths) {
+            if (require('fs').existsSync(binaryPath)) {
+                pythonScriptPath = binaryPath;
                 break;
             }
         }
 
-        // 如果所有路径都找不到，尝试使用 require.resolve
         if (!pythonScriptPath) {
-            try {
-                const moduleRoot = path.dirname(require.resolve('n8n-nodes-picEdit'));
-                const resolvedPath = path.join(moduleRoot, 'python', 'wrapper.py');
-                if (require('fs').existsSync(resolvedPath)) {
-                    pythonScriptPath = resolvedPath;
-                }
-            } catch (e) {
-                // 如果 resolve 失败则继续使用空路径
-            }
-        }
-
-        // 如果仍然找不到脚本文件，则报错
-        if (!pythonScriptPath || !require('fs').existsSync(pythonScriptPath)) {
-            reject(new Error(`Could not find Python script file. Searched paths: ${possiblePaths.join(', ')}`));
+            reject(new Error(`Binary transfer Python script not found. Please ensure wrapper_binary.py exists. Searched: ${binaryPaths.join(', ')}`));
             return;
         }
 
@@ -691,28 +871,27 @@ async function executePythonScript(config: any): Promise<any> {
             }
             
             try {
-                // 清理可能的编码问题
                 let cleanedStdout = stdoutData;
+                cleanedStdout = cleanedStdout.replace(/^\uFEFF/, '');
+                cleanedStdout = cleanedStdout.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
                 
-                // 移除可能的BOM和控制字符
-                cleanedStdout = cleanedStdout.replace(/^\uFEFF/, ''); // 移除BOM
-                cleanedStdout = cleanedStdout.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // 移除控制字符
-                
-                // 尝试解析JSON
                 const result = JSON.parse(cleanedStdout);
                 resolve(result);
             } catch (error) {
-                // 如果解析失败，尝试清理stderr中的编码问题
                 let cleanedStderr = stderrData;
                 try {
-                    // 尝试修复常见的编码问题
                     cleanedStderr = cleanedStderr.replace(/\\\\+/g, '\\');
-                    cleanedStderr = cleanedStderr.replace(/[\uFFFD]/g, '?'); // 替换替换字符
+                    cleanedStderr = cleanedStderr.replace(/[\uFFFD]/g, '?');
                 } catch (e) {
                     // 如果清理失败，使用原始数据
                 }
                 
-                reject(new Error("Failed to parse Python script output: " + stdoutData + (cleanedStderr ? "\nStderr: " + cleanedStderr : "")));
+                const errorParts = ["Failed to parse Python script output:", stdoutData];
+                if (cleanedStderr) {
+                    errorParts.push("Stderr:");
+                    errorParts.push(cleanedStderr);
+                }
+                reject(new Error(errorParts.join(" ")));
             }
         });
         
@@ -720,9 +899,114 @@ async function executePythonScript(config: any): Promise<any> {
             reject(new Error("Failed to start Python process: " + error.message));
         });
         
-        // Send config to Python script with proper encoding
-        const configJson = JSON.stringify(config);
+        const processedConfig = JSON.parse(JSON.stringify(config));
+        const configJson = JSON.stringify(processedConfig, null, 2);
         pythonProcess.stdin.write(configJson, 'utf8');
         pythonProcess.stdin.end();
     });
+}
+
+function generateFileName(extension: string): string {
+    const part1 = generateRandomString(13, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+    const part2 = generateRandomString(14, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789');
+    return `${part1}-${part2}.${extension}`;
+}
+
+function generateRandomString(length: number, chars: string): string {
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+async function convertToBinary(this: IExecuteFunctions, itemIndex: number, canvasResult: any): Promise<any> {
+    const outputFormat = this.getNodeParameter('outputFormat', itemIndex, 'png') as string;
+    const quality = this.getNodeParameter('quality', itemIndex, 90) as number;
+
+    if (!canvasResult || !canvasResult.success) {
+        const errorMsg = `No image data available for binary conversion. Canvas result: ${JSON.stringify(canvasResult, null, 2)}`;
+        throw new NodeOperationError(this.getNode(), errorMsg);
+    }
+
+    if (!canvasResult.base64) {
+        const errorMsg = `No base64 image data returned from Python script. Canvas result: ${JSON.stringify(canvasResult, null, 2)}`;
+        throw new NodeOperationError(this.getNode(), errorMsg);
+    }
+
+    if (typeof canvasResult.base64 !== 'string' || canvasResult.base64.length < 100) {
+        const errorMsg = `Invalid base64 data: type=${typeof canvasResult.base64}, length=${canvasResult.base64?.length || 0}`;
+        throw new NodeOperationError(this.getNode(), errorMsg);
+    }
+
+    let imageBuffer: Buffer;
+    try {
+        imageBuffer = Buffer.from(canvasResult.base64, 'base64');
+        
+        if (imageBuffer.length < 100) {
+            throw new Error(`Image buffer too small: ${imageBuffer.length} bytes`);
+        }
+        
+    } catch (error: any) {
+        const errorMsg = `Failed to convert base64 to buffer: ${error.message}`;
+        throw new NodeOperationError(this.getNode(), errorMsg);
+    }
+    
+    let processedBuffer: Buffer;
+    let mimeType: string;
+    let fileExtension: string;
+
+    try {
+        const sharpInstance = sharp(imageBuffer);
+        
+        switch (outputFormat) {
+            case 'png':
+                processedBuffer = await sharpInstance.png().toBuffer();
+                mimeType = 'image/png';
+                fileExtension = 'png';
+                break;
+            case 'jpeg':
+                processedBuffer = await sharpInstance.jpeg({ quality }).toBuffer();
+                mimeType = 'image/jpeg';
+                fileExtension = 'jpg';
+                break;
+            case 'webp':
+                processedBuffer = await sharpInstance.webp({ quality }).toBuffer();
+                mimeType = 'image/webp';
+                fileExtension = 'webp';
+                break;
+            default:
+                processedBuffer = await sharpInstance.png().toBuffer();
+                mimeType = 'image/png';
+                fileExtension = 'png';
+        }
+        
+    } catch (error: any) {
+        const errorMsg = `Failed to process image with Sharp: ${error.message}`;
+        throw new NodeOperationError(this.getNode(), errorMsg);
+    }
+
+    const fileName = generateFileName(fileExtension);
+    
+    let fileSize: string;
+    const bytes = processedBuffer.length;
+    if (bytes < 1024) {
+        fileSize = `${bytes} bytes`;
+    } else if (bytes < 1024 * 1024) {
+        fileSize = `${(bytes / 1024).toFixed(2)} KB`;
+    } else {
+        fileSize = `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    const fileInfo = {
+        fileName: fileName,
+        fileExtension: fileExtension,
+        mimeType: mimeType,
+        fileSize: fileSize
+    };
+
+    return {
+        buffer: processedBuffer,
+        fileInfo: fileInfo
+    };
 }

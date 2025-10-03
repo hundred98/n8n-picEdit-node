@@ -1,0 +1,8 @@
+text,position_x,position_y,font_size,color,font_name,rotation,opacity
+Hello World,100,50,36,#FF0000,Arial,0,255
+Welcome Message,200,120,28,#0066CC,Microsoft YaHei,15,230
+Subtitle Text,150,200,20,#333333,Calibri,0,200
+Footer Info,300,350,16,#666666,,0,180
+中文测试,300,500,36,#00FF00,C:\Windows\Fonts\msyh.ttc,0,255
+你今天出游了吗？,100,400,36,#0000FF,C:\Windows\Fonts\msyh.ttc,0,255
+ə'bændən,500,400,36,#0000FF,E:\code\N8N\picEdit\python\DoulosSIL-Regular.ttf,0,255

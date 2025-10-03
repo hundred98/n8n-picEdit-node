@@ -8,37 +8,41 @@
     "nodes",
     "image",
     "generator",
-    "overlay"
+    "overlay",
+    "text",
+    "canvas",
+    "picEdit"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/your-username/n8n-nodes-picEdit",
+  "homepage": "https://github.com/hundred98/n8n-picEdit-node",
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "hundred98",
+    "email": "hundred98@163.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/n8n-nodes-picEdit.git"
+    "url": "https://github.com/hundred98/n8n-picEdit-node.git"
   },
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "npx tsc && npm run copy-assets",
+    "copy-assets": "node -e \"const fs=require('fs'),path=require('path');if(!fs.existsSync('dist'))fs.mkdirSync('dist',{recursive:true});const srcDir='nodes';const destDir='dist';function copyAssets(src,dest){const items=fs.readdirSync(src,{withFileTypes:true});items.forEach(item=>{const srcPath=path.join(src,item.name);const destPath=path.join(dest,item.name);if(item.isDirectory()){if(!fs.existsSync(destPath))fs.mkdirSync(destPath,{recursive:true});copyAssets(srcPath,destPath);}else if(path.extname(item.name)==='.svg'){fs.copyFileSync(srcPath,destPath);}});}copyAssets(srcDir,destDir);\"",
+    "dev": "npx tsc --watch",
     "format": "prettier nodes credentials --write",
-    "lint": "tslint -p tsconfig.json -c tslint.json",
-    "lintfix": "tslint -p tsconfig.json -c tslint.json --fix",
-    "test": "node test_node.js",
-    "test:watch": "nodemon test_node.js"
+    "lint": "npx tslint -p tsconfig.json -c tslint.json",
+    "lintfix": "npx tslint -p tsconfig.json -c tslint.json --fix"
   },
   "files": [
     "dist",
+    "nodes",
     "python"
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
     "nodes": [
-      "dist/nodes/picEdit/PicEdit.node.js"
-    ]
+      "dist/PicEdit.node.js"
+    ],
+    "icon": "nodes/picEdit/picEdit.svg"
   },
   "devDependencies": {
     "@types/express": "^4.17.13",
@@ -54,6 +58,9 @@
   },
   "dependencies": {
     "csv-parser": "^3.0.0",
-    "express": "^4.18.1"
+    "express": "^4.18.1",
+    "mime-types": "^2.1.35",
+    "sharp": "^0.34.4",
+    "uuid": "^9.0.1"
   }
 }
