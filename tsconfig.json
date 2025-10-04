@@ -21,6 +21,7 @@
     "esModuleInterop": true
   },
   "include": [
+    "index.ts",
     "credentials/**/*",
     "nodes/**/*",
     "test/**/*"

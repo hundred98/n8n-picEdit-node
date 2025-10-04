@@ -1,26 +1,70 @@
+# Dependencies
 node_modules/
-*.log
-.git/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Development files
+src/
+__tests__/
+test/
+tests/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Build tools
 .nyc_output/
 coverage/
-.nyc_output/
+.eslintrc*
+.prettierrc*
+.stylelintrc*
+tsconfig.json
+tslint.json
+webpack.config.js
+rollup.config.js
+
+# IDE and OS files
 .DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git and CI
+.git/
+.gitignore
+.github/
+.travis.yml
+.circleci/
+
+# Environment and config
+.env
+.env.*
 .nvmrc
 .editorconfig
-.eslintignore
-.eslintrc.js
-.github/
-.idea/
-.nycrc
-.prettierignore
-.prettierrc.js
-.stylelintignore
-.stylelintrc.json
-__tests__/
-.gitignore
-.env
-.env.example
-test/
+
+# Documentation (keep README.md)
+docs/
 *.md
+!README.md
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# Package files
 *.tgz
+*.tar.gz
+
+# Keep essential files
+!dist/
+!nodes/
 !python/
+!LICENSE
+!package.json
+!README.md

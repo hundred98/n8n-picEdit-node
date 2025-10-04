@@ -8,19 +8,23 @@ const sharp = require('sharp');
 const mimeTypes = require('mime-types');
 const { v4: uuidv4 } = require('uuid');
 
+
+
 export class PicEdit implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'Pic Edit',
         name: 'picEdit',
-        icon: 'file:picEdit.svg',
+        icon: 'file:picEdit/picEdit.svg',
         group: ['transform'],
         version: 1,
+        subtitle: '={{$parameter["operation"]}}',
         description: 'Generate images with text and image overlays',
         defaults: {
             name: 'PicEdit',
         },
         inputs: ['main'],
         outputs: ['main'],
+        credentials: [],
         properties: [
             {
                 displayName: 'Operation',
@@ -192,7 +196,8 @@ export class PicEdit implements INodeType {
                     },
                 },
                 default: '',
-                description: 'Path to the background image',
+                description: 'Path to the background image file (relative paths recommended)',
+                placeholder: './images/background.jpg',
             },
 
             {
@@ -396,7 +401,8 @@ export class PicEdit implements INodeType {
                     },
                 },
                 default: '',
-                description: 'Path to the CSV file containing text data',
+                description: 'Path to the CSV file containing text data (relative paths recommended)',
+                placeholder: './data/text_config.csv',
             },
             {
                 displayName: 'CSV Format Info',
@@ -413,7 +419,7 @@ export class PicEdit implements INodeType {
                     },
                 },
                 default: '',
-                description: 'CSV columns: text,position_x,position_y,font_size,color,font_name,alignment,rotation,opacity',
+                description: 'CSV format: text,position_x,position_y,font_size,color,font_name,rotation,opacity. First row should contain headers.',
             },
 
             // Add Image
@@ -443,7 +449,8 @@ export class PicEdit implements INodeType {
                     },
                 },
                 default: '',
-                description: 'Path to the image file to overlay',
+                description: 'Path to the image file to overlay (relative paths recommended)',
+                placeholder: './images/overlay.png',
             },
             {
                 displayName: 'Position X',
@@ -591,6 +598,11 @@ async function createCanvas(this: IExecuteFunctions, itemIndex: number): Promise
     } else {
         const imagePath = this.getNodeParameter('imagePath', itemIndex) as string;
         
+        // Validate file path for security
+        if (!isValidFilePath(imagePath)) {
+            throw new NodeOperationError(this.getNode(), `Invalid or potentially unsafe file path: ${imagePath}`);
+        }
+        
         let imageBuffer: Buffer;
         let imageMetadata: any;
         try {
@@ -609,7 +621,7 @@ async function createCanvas(this: IExecuteFunctions, itemIndex: number): Promise
             imageBuffer = fs.readFileSync(imagePath);
             imageMetadata = await sharp(imageBuffer).metadata();
         } catch (error: any) {
-            throw new NodeOperationError(this.getNode(), `无法读取图片文件: ${imagePath}. Error: ${error.message}`);
+            throw new NodeOperationError(this.getNode(), `Unable to read background image file: ${imagePath}. Error: ${error.message}`);
         }
         
         config.canvas = {
@@ -692,6 +704,12 @@ async function addText(this: IExecuteFunctions, itemIndex: number, inputData: an
         });
     } else {
         const csvFilePath = this.getNodeParameter('csvFilePath', itemIndex) as string;
+        
+        // Validate file path for security
+        if (!isValidFilePath(csvFilePath)) {
+            throw new NodeOperationError(this.getNode(), `Invalid or potentially unsafe CSV file path: ${csvFilePath}`);
+        }
+        
         let processedCsvFilePath = csvFilePath;
         try {
             processedCsvFilePath = path.normalize(csvFilePath).replace(/\\/g, '/');
@@ -768,6 +786,11 @@ async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: a
 
     const overlayImagePath = this.getNodeParameter('overlayImagePath', itemIndex) as string;
     
+    // Validate file path for security
+    if (!isValidFilePath(overlayImagePath)) {
+        throw new NodeOperationError(this.getNode(), `Invalid or potentially unsafe overlay image path: ${overlayImagePath}`);
+    }
+    
     let overlayImageData: string | undefined;
     try {
         if (!fs.existsSync(overlayImagePath)) {
@@ -780,7 +803,7 @@ async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: a
         const imageBuffer = fs.readFileSync(overlayImagePath);
         overlayImageData = imageBuffer.toString('base64');
     } catch (error: any) {
-        throw new NodeOperationError(this.getNode(), `无法读取覆盖图片文件: ${overlayImagePath}. Error: ${error.message}`);
+        throw new NodeOperationError(this.getNode(), `Unable to read overlay image file: ${overlayImagePath}. Error: ${error.message}`);
     }
 
     config.elements.push({
@@ -918,6 +941,48 @@ function generateRandomString(length: number, chars: string): string {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+}
+
+/**
+ * Validates file path for security purposes
+ * Prevents directory traversal and restricts to safe paths
+ */
+function isValidFilePath(filePath: string): boolean {
+    if (!filePath || typeof filePath !== 'string') {
+        return false;
+    }
+    
+    // Normalize the path
+    const normalizedPath = path.normalize(filePath);
+    
+    // Check for directory traversal attempts
+    if (normalizedPath.includes('..') || normalizedPath.includes('~')) {
+        return false;
+    }
+    
+    // Check for absolute paths to system directories (basic protection)
+    const dangerousPaths = [
+        '/etc/',
+        '/bin/',
+        '/sbin/',
+        '/usr/bin/',
+        '/usr/sbin/',
+        '/root/',
+        'C:\\Windows\\',
+        'C:\\Program Files\\',
+        'C:\\Users\\Administrator\\',
+        'C:\\Users\\Default\\'
+    ];
+    
+    const upperPath = normalizedPath.toUpperCase();
+    for (const dangerous of dangerousPaths) {
+        if (upperPath.startsWith(dangerous.toUpperCase())) {
+            return false;
+        }
+    }
+    
+    // Allow relative paths and safe absolute paths
+    return true;
 }
 
 async function convertToBinary(this: IExecuteFunctions, itemIndex: number, canvasResult: any): Promise<any> {

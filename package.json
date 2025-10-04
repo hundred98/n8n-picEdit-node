@@ -1,27 +1,37 @@
 {
-  "name": "n8n-nodes-picEdit",
+  "name": "n8n-nodes-picedit",
   "version": "0.1.0",
-  "description": "N8N nodes for generating images with text and image overlays",
+  "description": "A powerful n8n community node for image processing and generation. Create canvases, add text overlays, and composite images with full binary data support.",
   "keywords": [
+    "n8n-community-node-package",
     "n8n",
     "node",
     "nodes",
     "image",
-    "generator",
-    "overlay",
-    "text",
+    "image-processing",
     "canvas",
-    "picEdit"
+    "text-overlay",
+    "image-generation",
+    "graphics",
+    "automation",
+    "workflow"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/hundred98/n8n-picEdit-node",
+  "homepage": "https://github.com/hundred98/n8n-picEdit-node#readme",
+  "bugs": {
+    "url": "https://github.com/hundred98/n8n-picEdit-node/issues"
+  },
   "author": {
     "name": "hundred98",
-    "email": "hundred98@163.com"
+    "email": "hundred98@163.com",
+    "url": "https://github.com/hundred98"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hundred98/n8n-picEdit-node.git"
+    "url": "git+https://github.com/hundred98/n8n-picEdit-node.git"
+  },
+  "engines": {
+    "node": ">=16.10.0"
   },
   "main": "index.js",
   "scripts": {
@@ -38,19 +48,20 @@
     "python"
   ],
   "n8n": {
-    "n8nNodesApiVersion": 1,
+    "n8nNodesApiVersion": 2,
     "nodes": [
-      "dist/PicEdit.node.js"
-    ],
-    "icon": "nodes/picEdit/picEdit.svg"
+      "dist/nodes/picEdit/PicEdit.node.js"
+    ]
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
   },
   "devDependencies": {
     "@types/express": "^4.17.13",
     "@types/node": "^18.0.0",
     "@types/request": "^2.48.13",
     "@types/request-promise-native": "^1.0.21",
-    "n8n-core": "^0.128.0",
-    "n8n-workflow": "^0.128.0",
+    "n8n-workflow": "^1.0.0",
     "nodemon": "^2.0.22",
     "prettier": "^2.7.1",
     "tslint": "^6.1.3",

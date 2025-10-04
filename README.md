@@ -1,291 +1,335 @@
-# N8N PicEdit Node
+# n8n-nodes-picEdit
 
-这是一个功能强大的 N8N 自定义节点，用于图片处理和生成，支持画布创建、文字添加和图片叠加等功能。
+![n8n](https://img.shields.io/badge/n8n-node-FF6D5A.svg)
+![npm version](https://img.shields.io/npm/v/n8n-nodes-picEdit.svg)
+![license](https://img.shields.io/npm/l/n8n-nodes-picEdit.svg)
 
-## 功能特点
+A powerful n8n community node for image processing and generation. Create canvases, add text overlays, and composite images with full binary data support.
 
-- **创建画布**：支持自定义尺寸和背景色，或从二进制图片数据创建画布
-- **添加文字**：支持自定义字体、大小、颜色、旋转角度和透明度
-- **添加图片**：支持图片叠加、缩放和旋转
-- **二进制数据处理**：完全支持 N8N 的二进制数据传递
-- **灵活的输入输出**：支持从工作流中的任意字段读取二进制图片数据
+## 🚀 Features
 
-## 安装
+- **Canvas Creation**: Create blank canvases or use existing images as backgrounds
+- **Text Overlays**: Add customizable text with fonts, colors, rotation, and opacity
+- **Image Composition**: Overlay images with scaling and rotation support
+- **Binary Data Support**: Full integration with n8n's binary data workflow
+- **Batch Processing**: Process multiple text elements from CSV files
+- **Security**: Built-in path validation and security measures
 
-### 开发环境安装
+## 📦 Installation
+
+### Community Installation
+
+Install via n8n's community nodes feature:
+
+1. Go to **Settings > Community Nodes**
+2. Enter the package name: `n8n-nodes-picEdit`
+3. Click **Install**
+
+### Manual Installation
 
 ```bash
-git clone <repo-url>
-cd picEdit
+# In your n8n installation directory
+npm install n8n-nodes-picEdit
+```
+
+### Prerequisites
+
+- Node.js 16.10 or higher
+- n8n 0.190.0 or higher
+- Python 3.6+ with Pillow library (temporary requirement)
+
+```bash
+pip install pillow
+```
+
+## 🎯 Node Operations
+
+### Create Canvas
+
+Create a new image canvas as the foundation for your design.
+
+**Options:**
+- **Blank Canvas**: Custom dimensions with solid background color
+- **From Image**: Use an existing image file as the canvas background
+
+**Parameters:**
+- `Width/Height`: Canvas dimensions in pixels
+- `Background Color`: Hex color code (e.g., #FFFFFF)
+- `Image Path`: Path to background image file (relative paths recommended)
+
+### Add Text
+
+Add text overlays to your canvas with extensive customization options.
+
+**Input Methods:**
+- **Manual**: Single text element with full customization
+- **CSV File**: Batch process multiple text elements from a CSV file
+
+**Text Properties:**
+- Position (X, Y coordinates)
+- Font size and family
+- Color (hex format)
+- Rotation angle
+- Opacity (0-255)
+
+**CSV Format:**
+```csv
+text,position_x,position_y,font_size,color,font_name,rotation,opacity
+Hello World,100,50,36,#FF0000,Arial,0,255
+Welcome,200,120,28,#0066CC,Microsoft YaHei,15,230
+```
+
+### Add Image
+
+Overlay images onto your canvas with transformation options.
+
+**Parameters:**
+- `Image Path`: Path to overlay image file
+- `Position`: X, Y coordinates for placement
+- `Scale`: Scaling factor (1.0 = original size)
+- `Rotation`: Rotation angle in degrees
+
+## 🔄 Workflow Examples
+
+### Example 1: Text Badge Generator
+
+```
+[Manual Trigger] → [PicEdit: Create Canvas] → [PicEdit: Add Text] → [Save Binary]
+```
+
+1. Create a 400x200 canvas with blue background
+2. Add white text "APPROVED" in the center
+3. Output as PNG binary data
+
+### Example 2: Batch Certificate Generator
+
+```
+[CSV File] → [Split In Batches] → [PicEdit: Create Canvas] → [PicEdit: Add Text (CSV)] → [Email]
+```
+
+1. Load certificate template as canvas background
+2. Process names from CSV file
+3. Generate personalized certificates
+4. Email each certificate
+
+### Example 3: Social Media Post
+
+```
+[HTTP Request: Image] → [PicEdit: Add Text] → [PicEdit: Add Image] → [Post to Social]
+```
+
+1. Fetch background image from URL
+2. Add title text overlay
+3. Add logo watermark
+4. Post to social media platforms
+
+## ⚙️ Configuration
+
+### Binary Data Fields
+
+The node supports flexible binary data handling:
+
+- **Input Binary Field**: Specify the field name containing input image data
+- **Output Field Name**: Customize the output binary field name
+- **Format Options**: PNG, JPEG, WebP with quality settings
+
+### File Path Security
+
+For security, file paths are validated to prevent:
+- Directory traversal attacks (`../` patterns)
+- Access to system directories
+- Invalid or malicious paths
+
+**Best Practices:**
+- Use relative paths when possible
+- Store assets in dedicated directories
+- Avoid absolute system paths
+
+### Output Formats
+
+Choose from multiple output formats:
+- **PNG**: Lossless, supports transparency
+- **JPEG**: Compressed, adjustable quality (1-100)
+- **WebP**: Modern format with excellent compression
+
+## 🛠️ Advanced Usage
+
+### Font Management
+
+The node supports various font sources:
+- System fonts by name (Arial, Times New Roman)
+- Font file paths (./fonts/custom.ttf)
+- Fallback to default fonts if specified font unavailable
+
+### Error Handling
+
+Comprehensive error handling with detailed messages:
+- File not found errors
+- Invalid image format detection
+- Path security violations
+- Font loading failures
+
+### Performance Tips
+
+- Use appropriate image sizes to avoid memory issues
+- Optimize CSV files for batch processing
+- Consider caching frequently used assets
+- Use WebP format for smaller file sizes
+
+## 🔧 Development
+
+### Building from Source
+
+```bash
+git clone https://github.com/hundred98/n8n-picEdit-node.git
+cd n8n-picEdit-node
 npm install
 npm run build
 ```
 
-### 依赖要求
+### Project Structure
 
-- Node.js (版本 12 或更高)
-- Python (版本 3.6 或更高)
-- Pillow 库
+```
+n8n-nodes-picEdit/
+├── nodes/
+│   └── picEdit/
+│       ├── PicEdit.node.ts    # Main node implementation
+│       └── picEdit.svg        # Node icon
+├── python/
+│   └── wrapper_binary.py      # Image processing backend
+├── dist/                      # Compiled output
+└── package.json
+```
 
-安装 Python 依赖：
+### Testing
 
 ```bash
-pip install pillow
+npm run lint        # Code linting
+npm run build       # Build project
+npm run dev         # Development mode
 ```
 
-## 使用方法
+## 🚨 Troubleshooting
 
-### 节点操作类型
+### Common Issues
 
-PicEdit 节点提供三种操作类型：
+**"Python script not found"**
+- Ensure Python is installed and in PATH
+- Verify Pillow library is installed: `pip install pillow`
 
-#### 1. Create Canvas (创建画布)
+**"File not found" errors**
+- Check file paths are correct and accessible
+- Use relative paths when possible
+- Verify file permissions
 
-创建新的画布，支持两种模式：
-- **纯色背景**：指定宽度、高度和背景颜色
-- **背景图片**：从指定路径加载图片作为背景
+**"Invalid file path" errors**
+- Path contains security violations
+- Use safe, relative paths
+- Avoid system directories
 
-**参数：**
-- Canvas Type: 选择 "Blank Canvas" 或 "Background Image"
-- Width/Height: 画布尺寸（像素）
-- Background Color: 背景颜色（十六进制格式，如 #FFFFFF）
-- Image Path: 背景图片路径（仅在选择 Background Image 时）
+**Font rendering issues**
+- Specify full font file paths
+- Use system-available fonts
+- Check font file accessibility
 
-#### 2. Add Text (添加文字)
+### Debug Information
 
-在画布上添加文字，支持丰富的自定义选项。
+The node provides detailed debug output including:
+- Font loading status
+- File path validations
+- Image processing steps
+- Error context and suggestions
 
-**输入源：**
-- **Manual Input**: 手动输入单个文字
-- **CSV File**: 从 CSV 文件批量添加多个文字
+## 📄 API Reference
 
-**参数：**
-- Input Binary Field Name: 输入的二进制图片字段名（可选）
-- Text Source: 选择 "Manual Input" 或 "CSV File"
+### Node Properties
 
-**Manual Input 参数：**
-- Text: 文字内容
-- Position X/Y: 文字位置坐标
-- Font Size: 字体大小（像素）
-- Color: 文字颜色（十六进制格式）
-- Font Name: 字体名称（可选，支持系统字体路径）
-- Rotation: 旋转角度（度，以文字左上角为旋转点）
-- Opacity: 透明度（0-255，0为完全透明）
+| Property | Type | Description |
+|----------|------|-------------|
+| operation | string | Operation type: createCanvas, addText, addImage |
+| outputFormat | string | Output format: png, jpeg, webp |
+| quality | number | Image quality for lossy formats (1-100) |
+| fieldName | string | Binary output field name |
 
-**CSV File 格式：**
+### Input Data Structure
 
-节点会自动跳过第一行标题行，从第二行开始读取数据。节点支持UTF-8编码，可以正确处理中文字符。
-
-```csv
-text,position_x,position_y,font_size,color,font_name,rotation,opacity
-Hello World,100,50,36,#FF0000,Arial,0,255
-Welcome Message,200,120,28,#0066CC,Microsoft YaHei,15,230
-Subtitle Text,150,200,20,#333333,Calibri,0,200
-Footer Info,300,350,16,#666666,,0,180
-中文测试,300,500,36,#00FF00,C:\Windows\Fonts\msyh.ttc,0,255
-```
-
-**CSV 模板文件：**
-项目中提供了标准的 CSV 模板文件：`templates/text_template.csv`，包含中文示例。你可以复制并修改这个文件来创建自己的文字配置。
-
-**CSV 编码注意事项：**
-- 节点支持UTF-8编码的CSV文件，可以正确显示中文字符
-- 如果使用Windows记事本编辑CSV，请选择"另存为" → 编码选择"UTF-8"
-- 推荐使用VS Code、Notepad++等编辑器，可以确保UTF-8编码保存
-
-#### 3. Add Image (添加图片)
-
-在画布上叠加图片。
-
-**参数：**
-- Input Binary Field Name: 输入的二进制图片字段名（可选）
-- Image Path: 要叠加的图片路径
-- Position X/Y: 图片位置坐标
-- Scale: 缩放比例（1.0 = 原尺寸）
-- Rotation: 旋转角度（度）
-
-### 工作流示例
-
-#### 示例 1：创建简单的文字图片
-
-1. 添加 "Pic Edit" 节点
-2. 选择 "Create Canvas" 操作
-3. 设置画布尺寸和背景色
-4. 添加另一个 "Pic Edit" 节点
-5. 选择 "Add Text" 操作
-6. 配置文字属性
-7. 连接节点
-
-#### 示例 2：处理现有图片并添加文字
-
-1. 使用其他节点获取图片数据（如 HTTP Request）
-2. 添加 "Pic Edit" 节点，选择 "Add Text" 操作
-3. 在 "Input Binary Field Name" 中指定图片数据的字段名
-4. 配置文字属性
-5. 节点将自动从二进制数据读取图片并添加文字
-
-#### 示例 3：批量处理 CSV 文字
-
-1. 准备 CSV 文件包含多个文字信息
-2. 添加 "Pic Edit" 节点，选择 "Create Canvas"
-3. 添加另一个 "Pic Edit" 节点，选择 "Add Text"
-4. 选择 "CSV File" 作为文字源
-5. 指定 CSV 文件路径
-
-## 高级功能
-
-### 字体系统
-
-节点支持完整的字体加载系统：
-
-1. **用户指定字体**：在 Font Name 中指定字体路径或名称
-2. **自动回退**：如果指定字体加载失败，自动尝试系统字体
-3. **调试信息**：提供详细的字体加载日志
-
-**支持的字体格式：**
-- Windows 系统字体路径（如：C:/Windows/Fonts/arial.ttf）
-- 字体名称（如：Arial、Microsoft YaHei）
-- 相对路径字体文件
-
-### 旋转功能
-
-- **文字旋转**：以文字左上角为旋转点，支持任意角度
-- **图片旋转**：以图片中心为旋转点
-
-### 透明度支持
-
-- **文字透明度**：0-255范围，0为完全透明
-- **图片透明度**：支持 PNG 格式的透明通道
-
-### 二进制数据处理
-
-节点完全支持 N8N 的二进制数据传递：
-
-1. **输入**：可以从工作流中任意字段读取二进制图片数据
-2. **输出**：生成的图片以二进制格式输出，可被其他节点使用
-3. **格式支持**：PNG、JPG 等常见图片格式
-
-## 输出格式
-
-节点输出包含：
-
-```json
+```javascript
 {
-  "success": true,
-  "message": "Binary transmission successful. Font used: Arial",
-  "fileInfo": {
-    "fileName": "generated_image.png",
-    "fileExtension": "png",
-    "mimeType": "image/png",
-    "fileSize": "15.6 KB"
+  json: {
+    // Any JSON data
   },
-  "debug": {
-    "font_info": "Received font name: 'Arial'",
-    "font_loading": "Successfully loaded user font: 'Arial'"
+  binary: {
+    image: {
+      data: "base64-encoded-image-data",
+      mimeType: "image/png",
+      fileName: "input.png"
+    }
   }
 }
 ```
 
-## 故障排除
+### Output Data Structure
 
-### 字体问题
-
-如果字体显示不正确：
-1. 检查字体路径是否正确
-2. 查看节点输出的调试信息
-3. 确保字体文件存在且可读
-4. 查看执行日志中的字体加载信息
-
-### 图片处理问题
-
-如果图片处理失败：
-1. 确认图片格式支持（PNG、JPG、GIF等）
-2. 检查图片文件路径是否正确
-3. 验证二进制数据字段名是否正确
-4. 确保文件路径指向文件而不是目录
-
-### CSV 文件问题
-
-如果CSV文件无法正确读取：
-1. 确保CSV文件以UTF-8编码保存
-2. 检查CSV文件路径是否正确
-3. 验证CSV文件格式符合模板要求
-4. 确保第一行是标题行，数据从第二行开始
-
-### 中文字符显示问题
-
-如果中文字符显示为小方块：
-1. 确保CSV文件以UTF-8编码保存
-2. 使用支持UTF-8的编辑器（VS Code、Notepad++）
-3. 检查字体是否支持中文字符（如Microsoft YaHei）
-
-### 文件路径错误
-
-如果遇到"EISDIR"错误：
-1. 确保提供的是文件路径而不是目录路径
-2. 检查文件是否存在
-3. 验证文件权限是否可读
-
-### Python 环境
-
-确保 Python 环境正确配置：
-```bash
-python --version  # 应该是 3.6+
-pip install pillow
+```javascript
+{
+  json: {
+    success: true,
+    message: "Canvas created successfully",
+    fileInfo: {
+      fileName: "generated-image.png",
+      fileExtension: "png",
+      mimeType: "image/png",
+      fileSize: "15.6 KB"
+    }
+  },
+  binary: {
+    data: {
+      data: "base64-encoded-result",
+      mimeType: "image/png",
+      fileName: "generated-image.png"
+    }
+  }
+}
 ```
 
-## 开发信息
+## 🤝 Contributing
 
-### 项目结构
+Contributions are welcome! Please:
 
-```
-picEdit/
-├── nodes/
-│   └── picEdit/
-│       └── PicEdit.node.ts    # 主节点文件
-├── python/
-│   ├── wrapper_binary.py      # Python 图片处理脚本
-│   ├── canvas_generator.py    # 画布生成库
-│   └── example.py             # 使用示例
-├── dist/                      # 编译输出
-└── package.json
-```
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-### 构建项目
+## 📝 Changelog
 
-```bash
-npm run build
-```
+### v0.1.0
+- Initial release
+- Canvas creation and text overlay features
+- Image composition capabilities
+- CSV batch processing
+- Binary data integration
+- Security enhancements
+- Improved error handling
 
-### 开发模式
+## 📜 License
 
-```bash
-npm run dev
-```
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## 版本历史
+## 🔗 Links
 
-### v1.0.0
-- ✅ 基础的画布创建、文字添加、图片叠加功能
-- ✅ 支持二进制数据输入输出
-- ✅ 完整的字体系统和调试信息
-- ✅ CSV 批量文字处理（UTF-8编码支持）
-- ✅ 文字旋转和透明度支持（以文字左上角为旋转点）
-- ✅ 智能字体回退机制
-- ✅ 文件路径验证（防止目录读取错误）
-- ✅ 中文字符完整支持
-- ✅ 详细的调试输出和错误处理
-- ✅ CSV模板文件和使用示例
-- ✅ 全面的功能测试完成
+- [n8n Community Nodes](https://docs.n8n.io/integrations/community-nodes/)
+- [GitHub Repository](https://github.com/hundred98/n8n-picEdit-node)
+- [npm Package](https://www.npmjs.com/package/n8n-nodes-picEdit)
+- [Issue Tracker](https://github.com/hundred98/n8n-picEdit-node/issues)
 
-## 许可证
+## 💬 Support
 
-MIT License
+- Create an issue on [GitHub](https://github.com/hundred98/n8n-picEdit-node/issues)
+- Join the [n8n Community](https://community.n8n.io/)
+- Check the [n8n Documentation](https://docs.n8n.io/)
 
-## 贡献
+---
 
-欢迎提交 Issue 和 Pull Request 来改进这个项目。
-
-## 联系方式
-
-如有问题或建议，请通过 GitHub Issues 联系。
+Made with ❤️ for the n8n community
