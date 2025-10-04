@@ -805,7 +805,9 @@ async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: a
         }
         
         if (rotation !== 0) {
-            processedOverlay = processedOverlay.rotate(rotation);
+            processedOverlay = processedOverlay.rotate(rotation, {
+                background: { r: 0, g: 0, b: 0, alpha: 0 } // 透明背景
+            });
         }
         
         const overlayBuffer = await processedOverlay.png().toBuffer();

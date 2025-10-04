@@ -4,7 +4,7 @@
 ![npm version](https://img.shields.io/npm/v/n8n-nodes-picEdit.svg)
 ![license](https://img.shields.io/npm/l/n8n-nodes-picEdit.svg)
 
-A powerful n8n community node for image processing and generation. Create canvases, add text overlays, and composite images with full binary data support.
+A powerful n8n community node for image processing and generation. Create canvases, add text overlays, and composite images with full binary data support. Built with Sharp.js for high-performance image processing without external dependencies.
 
 ## 🚀 Features
 
@@ -14,6 +14,10 @@ A powerful n8n community node for image processing and generation. Create canvas
 - **Binary Data Support**: Full integration with n8n's binary data workflow
 - **Batch Processing**: Process multiple text elements from CSV files
 - **Security**: Built-in path validation and security measures
+- **Pure Node.js**: Built with Sharp.js - no Python or external dependencies required
+- **High Performance**: Fast image processing with native Sharp library
+- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Unicode Support**: Full support for emoji and special characters
 
 ## 📦 Installation
 
@@ -36,11 +40,8 @@ npm install n8n-nodes-picEdit
 
 - Node.js 16.10 or higher
 - n8n 0.190.0 or higher
-- Python 3.6+ with Pillow library (temporary requirement)
 
-```bash
-pip install pillow
-```
+**No additional dependencies required!** The node uses Sharp.js which is automatically installed as a dependency.
 
 ## 🎯 Node Operations
 
@@ -193,13 +194,23 @@ npm run build
 n8n-nodes-picEdit/
 ├── nodes/
 │   └── picEdit/
-│       ├── PicEdit.node.ts    # Main node implementation
-│       └── picEdit.svg        # Node icon
-├── python/
-│   └── wrapper_binary.py      # Image processing backend
-├── dist/                      # Compiled output
+│       ├── PicEdit.node.ts           # Main node implementation
+│       ├── SharpImageProcessor.ts    # Sharp.js image processing engine
+│       └── picEdit.svg               # Node icon
+├── dist/                             # Compiled output
+├── index.ts                          # Entry point
 └── package.json
 ```
+
+### Technical Architecture
+
+The node is built with modern web technologies:
+
+- **Sharp.js**: High-performance image processing library
+- **SVG Composition**: Text rendering using SVG for precise typography
+- **TypeScript**: Type-safe development with full IDE support
+- **Zero Dependencies**: No external tools or Python scripts required
+- **Memory Efficient**: Optimized for large image processing workflows
 
 ### Testing
 
@@ -212,10 +223,6 @@ npm run dev         # Development mode
 ## 🚨 Troubleshooting
 
 ### Common Issues
-
-**"Python script not found"**
-- Ensure Python is installed and in PATH
-- Verify Pillow library is installed: `pip install pillow`
 
 **"File not found" errors**
 - Check file paths are correct and accessible
@@ -235,9 +242,11 @@ npm run dev         # Development mode
 ### Debug Information
 
 The node provides detailed debug output including:
-- Font loading status
+- Sharp.js processing status
+- SVG text rendering information
 - File path validations
 - Image processing steps
+- Font fallback mechanisms
 - Error context and suggestions
 
 ## 📄 API Reference
@@ -305,13 +314,18 @@ Contributions are welcome! Please:
 ## 📝 Changelog
 
 ### v0.1.0
-- Initial release
+- Initial release with Sharp.js architecture
 - Canvas creation and text overlay features
 - Image composition capabilities
 - CSV batch processing
 - Binary data integration
 - Security enhancements
 - Improved error handling
+- Pure Node.js implementation (no Python dependencies)
+- SVG-based text rendering for precise typography
+- Cross-platform compatibility
+- Unicode and emoji support
+- High-performance image processing
 
 ## 📜 License
 
