@@ -1,1 +1,0 @@
-export * from './nodes/picEdit/PicEdit.node';

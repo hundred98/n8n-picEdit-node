@@ -141,3 +141,10 @@ dist/
 
 # Package files
 *.tgz
+
+# Build scripts (temporary files)
+build.js
+simple-build.js
+
+# TypeScript source index (use compiled dist/index.js instead)
+index.ts
