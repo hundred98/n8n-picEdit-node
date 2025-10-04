@@ -141,6 +141,7 @@ dist/
 
 # Package files
 *.tgz
+*.tar.gz
 
 # Build scripts (temporary files)
 build.js
@@ -148,3 +149,12 @@ simple-build.js
 
 # TypeScript source index (use compiled dist/index.js instead)
 index.ts
+
+# Test files and temporary files
+test-*
+temp-*
+*.tmp
+*.log
+
+# NPM pack output
+n8n-nodes-picedit-*.tgz
