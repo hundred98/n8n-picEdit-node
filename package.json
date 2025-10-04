@@ -43,9 +43,7 @@
     "lintfix": "npx tslint -p tsconfig.json -c tslint.json --fix"
   },
   "files": [
-    "dist",
-    "nodes",
-    "python"
+    "dist"
   ],
   "n8n": {
     "n8nNodesApiVersion": 2,
