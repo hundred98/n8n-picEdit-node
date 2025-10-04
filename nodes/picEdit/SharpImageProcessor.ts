@@ -92,7 +92,8 @@ export class SharpImageProcessor {
     }
     
     /**
-     * Create text layer using optimized SVG with minimal warnings
+     * Create text layer using simple SVG approach
+     * Note: librsvg warnings are system-level and cannot be completely suppressed from Node.js
      */
     private async createTextLayer(config: TextConfig, canvasWidth: number, canvasHeight: number): Promise<Buffer> {
         const { text, fontSize, color, position, rotation = 0, opacity = 255, fontPath } = config;
@@ -105,56 +106,65 @@ export class SharpImageProcessor {
         // Escape text for SVG
         const escapedText = this.escapeXmlText(text);
         
-        // Determine font family
-        let fontFamily = 'Arial, sans-serif';
-        if (fontPath) {
-            // For custom fonts, we'll use a fallback approach
-            // since loading custom fonts in SVG is complex without canvas
-            console.warn(`Custom font path specified (${fontPath}) but will use system font as fallback`);
-            fontFamily = 'Arial, sans-serif';
-        }
+        // Use system font (custom fonts not supported in this implementation)
+        const fontFamily = 'Arial, sans-serif';
         
         // Calculate text positioning
         const x = position[0];
-        const y = position[1] + fontSize; // SVG text baseline is different from canvas
+        const y = position[1] + fontSize;
         
-        // Create SVG with text
-        let transformAttr = '';
+        // Create minimal SVG
+        let svgContent: string;
+        
         if (rotation !== 0) {
-            transformAttr = ` transform="rotate(${rotation} ${x} ${y})"`;
+            svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}">
+<g transform="rotate(${rotation} ${x} ${y})">
+<text x="${x}" y="${y}" font-family="${fontFamily}" font-size="${fontSize}" fill="${colorWithOpacity}">${escapedText}</text>
+</g>
+</svg>`;
+        } else {
+            svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}">
+<text x="${x}" y="${y}" font-family="${fontFamily}" font-size="${fontSize}" fill="${colorWithOpacity}">${escapedText}</text>
+</svg>`;
         }
         
-        // Create minimal SVG to reduce librsvg warnings
-        const svgContent = `<svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${x}" y="${y}" 
-        font-family="${fontFamily}" 
-        font-size="${fontSize}" 
-        fill="${colorWithOpacity}"${transformAttr}>${escapedText}</text>
-</svg>`;
-        
         try {
-            // Convert SVG to PNG using Sharp with minimal configuration to reduce warnings
             const svgBuffer = Buffer.from(svgContent, 'utf8');
             
-            // Use a simplified Sharp configuration that minimizes librsvg interactions
+            // Disable Sharp's debug output
+            const originalVipsInfo = process.env.VIPS_INFO;
+            const originalVipsProgress = process.env.VIPS_PROGRESS;
+            process.env.VIPS_INFO = '0';
+            process.env.VIPS_PROGRESS = '0';
+            
             const result = await sharp(svgBuffer, {
                 density: 72,
-                failOn: 'none'  // Don't fail on warnings
+                failOn: 'none'
             })
-            .png({
-                compressionLevel: 6,
-                force: true
-            })
+            .png({ force: true })
             .toBuffer();
+            
+            // Restore environment variables
+            if (originalVipsInfo !== undefined) {
+                process.env.VIPS_INFO = originalVipsInfo;
+            } else {
+                delete process.env.VIPS_INFO;
+            }
+            
+            if (originalVipsProgress !== undefined) {
+                process.env.VIPS_PROGRESS = originalVipsProgress;
+            } else {
+                delete process.env.VIPS_PROGRESS;
+            }
             
             return result;
             
         } catch (error) {
-            console.error('SVG rendering error:', error);
-            console.error('SVG content that failed:', svgContent);
             throw new Error(`SVG text rendering failed: ${(error as Error).message}`);
         }
     }
+    
+
     
     /**
      * Escape text for SVG XML content - FIXED VERSION
