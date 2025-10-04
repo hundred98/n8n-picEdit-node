@@ -1,12 +1,12 @@
  import { IExecuteFunctions } from 'n8n-workflow';
 import { INodeExecutionData, INodeType, INodeTypeDescription, NodeExecutionWithMetadata, NodeOperationError } from 'n8n-workflow';
-import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import csvParser = require('csv-parser');
 const sharp = require('sharp');
 const mimeTypes = require('mime-types');
 const { v4: uuidv4 } = require('uuid');
+import { SharpImageProcessor, CanvasConfig, TextConfig } from './SharpImageProcessor';
 
 
 
@@ -581,16 +581,12 @@ export class PicEdit implements INodeType {
 
 async function createCanvas(this: IExecuteFunctions, itemIndex: number): Promise<any> {
     const canvasType = this.getNodeParameter('canvasType', itemIndex) as string;
+    const processor = new SharpImageProcessor();
     
-    const config: any = {
-        mode: 'config',
-        canvas: {},
-        elements: [],
-        outputFormat: 'base64'
-    };
+    let canvasConfig: CanvasConfig;
 
     if (canvasType === 'blank') {
-        config.canvas = {
+        canvasConfig = {
             width: this.getNodeParameter('width', itemIndex) as number,
             height: this.getNodeParameter('height', itemIndex) as number,
             backgroundColor: this.getNodeParameter('backgroundColor', itemIndex) as string,
@@ -624,34 +620,34 @@ async function createCanvas(this: IExecuteFunctions, itemIndex: number): Promise
             throw new NodeOperationError(this.getNode(), `Unable to read background image file: ${imagePath}. Error: ${error.message}`);
         }
         
-        config.canvas = {
+        canvasConfig = {
             width: imageMetadata.width || 800,
             height: imageMetadata.height || 600,
             backgroundImageData: imageBuffer.toString('base64'),
-            backgroundMode: 'original'
         };
     }
 
-    const result = await executePythonScript(config);
-    
-    if (result.success) {
-        result.canvas = config.canvas;
-        result.elements = config.elements;
+    try {
+        const canvasBuffer = await processor.createCanvas(canvasConfig);
+        
+        return {
+            success: true,
+            base64: canvasBuffer.toString('base64'),
+            message: 'Canvas created successfully',
+            canvas: canvasConfig,
+            elements: []
+        };
+    } catch (error: any) {
+        throw new NodeOperationError(this.getNode(), `Canvas creation failed: ${error.message}`);
     }
-    
-    return result;
 }
 
 async function addText(this: IExecuteFunctions, itemIndex: number, inputData: any): Promise<any> {
     const inputBinaryField = this.getNodeParameter('inputBinaryField', itemIndex) as string;
     const textSource = this.getNodeParameter('textSource', itemIndex) as string;
+    const processor = new SharpImageProcessor();
     
-    let config: any = {
-        mode: 'config',
-        canvas: {},
-        elements: [],
-        outputFormat: 'base64'
-    };
+    let canvasBuffer: Buffer;
 
     if (inputBinaryField && inputBinaryField.trim() !== '') {
         const items = this.getInputData();
@@ -662,92 +658,95 @@ async function addText(this: IExecuteFunctions, itemIndex: number, inputData: an
         }
         
         const binaryData = currentItem.binary[inputBinaryField];
-        const imageBuffer = Buffer.from(binaryData.data, 'base64');
+        canvasBuffer = Buffer.from(binaryData.data, 'base64');
         
-        let imageMetadata: any;
-        try {
-            imageMetadata = await sharp(imageBuffer).metadata();
-        } catch (error: any) {
-            throw new NodeOperationError(this.getNode(), `Failed to read binary image metadata: ${error.message}`);
-        }
-        
-        config.canvas = {
-            width: imageMetadata.width || 800,
-            height: imageMetadata.height || 600,
-            backgroundImageData: imageBuffer.toString('base64'),
-            backgroundMode: 'original'
-        };
-        config.elements = [];
-        
+    } else if (inputData.base64) {
+        canvasBuffer = Buffer.from(inputData.base64, 'base64');
     } else {
-        config.canvas = inputData.canvas || {
-            width: 800,
-            height: 600,
-            backgroundColor: '#ffffff'
-        };
-        config.elements = inputData.elements || [];
+        throw new NodeOperationError(this.getNode(), 'No input canvas found. Please provide either binary field or canvas data from previous step.');
     }
 
-    if (textSource === 'manual') {
-        config.elements.push({
-            type: 'text',
-            position: [
-                this.getNodeParameter('positionX', itemIndex) as number,
-                this.getNodeParameter('positionY', itemIndex) as number
-            ],
-            text: this.getNodeParameter('text', itemIndex) as string,
-            fontSize: this.getNodeParameter('fontSize', itemIndex) as number,
-            color: this.getNodeParameter('color', itemIndex) as string,
-            fontName: this.getNodeParameter('fontName', itemIndex) as string || undefined,
-            rotation: this.getNodeParameter('rotationAngle', itemIndex) as number,
-            opacity: this.getNodeParameter('opacity', itemIndex) as number,
-        });
-    } else {
-        const csvFilePath = this.getNodeParameter('csvFilePath', itemIndex) as string;
+    try {
+        let resultBuffer = canvasBuffer;
         
-        // Validate file path for security
-        if (!isValidFilePath(csvFilePath)) {
-            throw new NodeOperationError(this.getNode(), `Invalid or potentially unsafe CSV file path: ${csvFilePath}`);
-        }
-        
-        let processedCsvFilePath = csvFilePath;
-        try {
-            processedCsvFilePath = path.normalize(csvFilePath).replace(/\\/g, '/');
-            if (!fs.existsSync(processedCsvFilePath) && !fs.existsSync(csvFilePath)) {
-                throw new NodeOperationError(this.getNode(), `CSV file not found: ${processedCsvFilePath}`);
-            }
-            if (!fs.existsSync(processedCsvFilePath)) {
-                processedCsvFilePath = csvFilePath;
+        if (textSource === 'manual') {
+            const fontName = this.getNodeParameter('fontName', itemIndex) as string;
+            const textConfig: TextConfig = {
+                text: this.getNodeParameter('text', itemIndex) as string,
+                fontSize: this.getNodeParameter('fontSize', itemIndex) as number,
+                color: this.getNodeParameter('color', itemIndex) as string,
+                position: [
+                    this.getNodeParameter('positionX', itemIndex) as number,
+                    this.getNodeParameter('positionY', itemIndex) as number
+                ],
+                rotation: this.getNodeParameter('rotationAngle', itemIndex) as number,
+                opacity: this.getNodeParameter('opacity', itemIndex) as number,
+                fontPath: fontName ? fontName : undefined,
+            };
+            
+            resultBuffer = await processor.addText(resultBuffer, textConfig);
+        } else {
+            const csvFilePath = this.getNodeParameter('csvFilePath', itemIndex) as string;
+            
+            // Validate file path for security
+            if (!isValidFilePath(csvFilePath)) {
+                throw new NodeOperationError(this.getNode(), `Invalid or potentially unsafe CSV file path: ${csvFilePath}`);
             }
             
-            const stats = fs.statSync(processedCsvFilePath);
-            if (stats.isDirectory()) {
-                throw new NodeOperationError(this.getNode(), `Path is a directory, not a file: ${processedCsvFilePath}`);
+            let processedCsvFilePath = csvFilePath;
+            try {
+                processedCsvFilePath = path.normalize(csvFilePath).replace(/\\/g, '/');
+                if (!fs.existsSync(processedCsvFilePath) && !fs.existsSync(csvFilePath)) {
+                    throw new NodeOperationError(this.getNode(), `CSV file not found: ${processedCsvFilePath}`);
+                }
+                if (!fs.existsSync(processedCsvFilePath)) {
+                    processedCsvFilePath = csvFilePath;
+                }
+                
+                const stats = fs.statSync(processedCsvFilePath);
+                if (stats.isDirectory()) {
+                    throw new NodeOperationError(this.getNode(), `Path is a directory, not a file: ${processedCsvFilePath}`);
+                }
+                if (!stats.isFile()) {
+                    throw new NodeOperationError(this.getNode(), `Path does not point to a regular file: ${processedCsvFilePath}`);
+                }
+            } catch (error: any) {
+                throw new NodeOperationError(this.getNode(), `Invalid CSV file path: ${csvFilePath}. Error: ${error.message}`);
             }
-            if (!stats.isFile()) {
-                throw new NodeOperationError(this.getNode(), `Path does not point to a regular file: ${processedCsvFilePath}`);
+            
+            const csvElements = await parseCsvFile(processedCsvFilePath);
+            
+            // Add each text element from CSV
+            for (const element of csvElements) {
+                const textConfig: TextConfig = {
+                    text: element.text,
+                    fontSize: element.fontSize,
+                    color: element.color,
+                    position: element.position,
+                    rotation: element.rotation,
+                    opacity: element.opacity,
+                    fontPath: element.fontName ? element.fontName : undefined,
+                };
+                
+                resultBuffer = await processor.addText(resultBuffer, textConfig);
             }
-        } catch (error: any) {
-            throw new NodeOperationError(this.getNode(), `Invalid CSV file path: ${csvFilePath}. Error: ${error.message}`);
         }
         
-        const csvElements = await parseCsvFile(processedCsvFilePath);
-        config.elements.push(...csvElements);
+        return {
+            success: true,
+            base64: resultBuffer.toString('base64'),
+            message: 'Text added successfully'
+        };
+        
+    } catch (error: any) {
+        throw new NodeOperationError(this.getNode(), `Text rendering failed: ${error.message}`);
     }
-
-    const result = await executePythonScript(config);
-    return result;
 }
 
 async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: any): Promise<any> {
     const inputBinaryField = this.getNodeParameter('inputBinaryField', itemIndex) as string;
     
-    let config: any = {
-        mode: 'config',
-        canvas: {},
-        elements: [],
-        outputFormat: 'base64'
-    };
+    let canvasBuffer: Buffer;
 
     if (inputBinaryField && inputBinaryField.trim() !== '') {
         const items = this.getInputData();
@@ -758,30 +757,12 @@ async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: a
         }
         
         const binaryData = currentItem.binary[inputBinaryField];
-        const imageBuffer = Buffer.from(binaryData.data, 'base64');
+        canvasBuffer = Buffer.from(binaryData.data, 'base64');
         
-        let imageMetadata: any;
-        try {
-            imageMetadata = await sharp(imageBuffer).metadata();
-        } catch (error: any) {
-            throw new NodeOperationError(this.getNode(), `Failed to read binary image metadata: ${error.message}`);
-        }
-        
-        config.canvas = {
-            width: imageMetadata.width || 800,
-            height: imageMetadata.height || 600,
-            backgroundImageData: imageBuffer.toString('base64'),
-            backgroundMode: 'original'
-        };
-        config.elements = [];
-        
+    } else if (inputData.base64) {
+        canvasBuffer = Buffer.from(inputData.base64, 'base64');
     } else {
-        config.canvas = inputData.canvas || {
-            width: 800,
-            height: 600,
-            backgroundColor: '#ffffff'
-        };
-        config.elements = inputData.elements || [];
+        throw new NodeOperationError(this.getNode(), 'No input canvas found. Please provide either binary field or canvas data from previous step.');
     }
 
     const overlayImagePath = this.getNodeParameter('overlayImagePath', itemIndex) as string;
@@ -791,7 +772,7 @@ async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: a
         throw new NodeOperationError(this.getNode(), `Invalid or potentially unsafe overlay image path: ${overlayImagePath}`);
     }
     
-    let overlayImageData: string | undefined;
+    let overlayImageBuffer: Buffer;
     try {
         if (!fs.existsSync(overlayImagePath)) {
             throw new NodeOperationError(this.getNode(), `Overlay image file not found: ${overlayImagePath}`);
@@ -800,25 +781,55 @@ async function addImage(this: IExecuteFunctions, itemIndex: number, inputData: a
             throw new NodeOperationError(this.getNode(), `Path is not a file: ${overlayImagePath}`);
         }
         
-        const imageBuffer = fs.readFileSync(overlayImagePath);
-        overlayImageData = imageBuffer.toString('base64');
+        overlayImageBuffer = fs.readFileSync(overlayImagePath);
     } catch (error: any) {
         throw new NodeOperationError(this.getNode(), `Unable to read overlay image file: ${overlayImagePath}. Error: ${error.message}`);
     }
 
-    config.elements.push({
-        type: 'image',
-        position: [
+    try {
+        const position = [
             this.getNodeParameter('imagePositionX', itemIndex) as number,
             this.getNodeParameter('imagePositionY', itemIndex) as number
-        ],
-        imageData: overlayImageData,
-        scale: this.getNodeParameter('scale', itemIndex) as number,
-        rotation: this.getNodeParameter('rotation', itemIndex) as number,
-    });
-
-    const result = await executePythonScript(config);
-    return result;
+        ];
+        const scale = this.getNodeParameter('scale', itemIndex) as number;
+        const rotation = this.getNodeParameter('rotation', itemIndex) as number;
+        
+        // Process overlay image with Sharp
+        let processedOverlay = sharp(overlayImageBuffer);
+        
+        if (scale !== 1) {
+            const metadata = await processedOverlay.metadata();
+            const newWidth = Math.round((metadata.width || 100) * scale);
+            const newHeight = Math.round((metadata.height || 100) * scale);
+            processedOverlay = processedOverlay.resize(newWidth, newHeight);
+        }
+        
+        if (rotation !== 0) {
+            processedOverlay = processedOverlay.rotate(rotation);
+        }
+        
+        const overlayBuffer = await processedOverlay.png().toBuffer();
+        
+        // Composite overlay onto canvas
+        const resultBuffer = await sharp(canvasBuffer)
+            .composite([{
+                input: overlayBuffer,
+                top: position[1],
+                left: position[0],
+                blend: 'over'
+            }])
+            .png()
+            .toBuffer();
+        
+        return {
+            success: true,
+            base64: resultBuffer.toString('base64'),
+            message: 'Image added successfully'
+        };
+        
+    } catch (error: any) {
+        throw new NodeOperationError(this.getNode(), `Image overlay failed: ${error.message}`);
+    }
 }
 
 async function parseCsvFile(filePath: string): Promise<any[]> {
@@ -851,83 +862,7 @@ async function parseCsvFile(filePath: string): Promise<any[]> {
     });
 }
 
-async function executePythonScript(config: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-        const binaryPaths = [
-            path.join(__dirname, '..', '..', 'python', 'wrapper_binary.py'),
-            path.join(__dirname, '..', 'python', 'wrapper_binary.py'),
-            path.join(__dirname, '..', '..', '..', 'python', 'wrapper_binary.py')
-        ];
-        
-        let pythonScriptPath = '';
-        for (const binaryPath of binaryPaths) {
-            if (require('fs').existsSync(binaryPath)) {
-                pythonScriptPath = binaryPath;
-                break;
-            }
-        }
 
-        if (!pythonScriptPath) {
-            reject(new Error(`Binary transfer Python script not found. Please ensure wrapper_binary.py exists. Searched: ${binaryPaths.join(', ')}`));
-            return;
-        }
-
-        const pythonProcess = spawn('python', [pythonScriptPath], {
-            stdio: ['pipe', 'pipe', 'pipe']
-        });
-        
-        let stdoutData = '';
-        let stderrData = '';
-        
-        pythonProcess.stdout.on('data', (data) => {
-            stdoutData += data.toString('utf8');
-        });
-        
-        pythonProcess.stderr.on('data', (data) => {
-            stderrData += data.toString('utf8');
-        });
-        
-        pythonProcess.on('close', (code) => {
-            if (code !== 0) {
-                reject(new Error("Python script exited with code " + code + ". Stderr: " + stderrData));
-                return;
-            }
-            
-            try {
-                let cleanedStdout = stdoutData;
-                cleanedStdout = cleanedStdout.replace(/^\uFEFF/, '');
-                cleanedStdout = cleanedStdout.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-                
-                const result = JSON.parse(cleanedStdout);
-                resolve(result);
-            } catch (error) {
-                let cleanedStderr = stderrData;
-                try {
-                    cleanedStderr = cleanedStderr.replace(/\\\\+/g, '\\');
-                    cleanedStderr = cleanedStderr.replace(/[\uFFFD]/g, '?');
-                } catch (e) {
-                    // 如果清理失败，使用原始数据
-                }
-                
-                const errorParts = ["Failed to parse Python script output:", stdoutData];
-                if (cleanedStderr) {
-                    errorParts.push("Stderr:");
-                    errorParts.push(cleanedStderr);
-                }
-                reject(new Error(errorParts.join(" ")));
-            }
-        });
-        
-        pythonProcess.on('error', (error) => {
-            reject(new Error("Failed to start Python process: " + error.message));
-        });
-        
-        const processedConfig = JSON.parse(JSON.stringify(config));
-        const configJson = JSON.stringify(processedConfig, null, 2);
-        pythonProcess.stdin.write(configJson, 'utf8');
-        pythonProcess.stdin.end();
-    });
-}
 
 function generateFileName(extension: string): string {
     const part1 = generateRandomString(13, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ');

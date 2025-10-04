@@ -1,3 +1,1 @@
-import { PicEdit } from './nodes/picEdit/PicEdit.node';
-
-export { PicEdit };
+export * from './nodes/picEdit/PicEdit.node';
