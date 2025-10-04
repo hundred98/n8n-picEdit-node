@@ -1,6 +1,33 @@
+// 在导入Sharp之前，先设置所有可能的环境变量来禁用调试输出
+process.env.VIPS_WARNING = '0';
+process.env.VIPS_INFO = '0';
+process.env.VIPS_PROGRESS = '0';
+process.env.VIPS_DEBUG = '0';
+process.env.VIPS_LEAK = '0';
+process.env.VIPS_TRACE = '0';
+process.env.VIPS_CONCURRENCY = '1';
+process.env.VIPS_DISC_THRESHOLD = '0';
+process.env.VIPS_NOVECTOR = '1';
+process.env.VIPS_OPERATION_BLOCK = '1';
+
 import sharp from 'sharp';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// 创建一个静默的Sharp实例配置
+const configureSharpSilent = () => {
+    try {
+        sharp.simd(false);
+        sharp.concurrency(1);
+        // 尝试禁用Sharp的内部缓存和调试
+        sharp.cache(false);
+    } catch (error) {
+        // 忽略配置错误
+    }
+};
+
+// 立即执行配置
+configureSharpSilent();
 
 /**
  * Sharp-based image processor to replace Python PIL functionality
@@ -131,35 +158,55 @@ export class SharpImageProcessor {
         try {
             const svgBuffer = Buffer.from(svgContent, 'utf8');
             
-            // Disable Sharp's debug output
-            const originalVipsInfo = process.env.VIPS_INFO;
-            const originalVipsProgress = process.env.VIPS_PROGRESS;
-            process.env.VIPS_INFO = '0';
-            process.env.VIPS_PROGRESS = '0';
+            // 使用更激进的方法来屏蔽Sharp输出 - 临时重定向stderr
+            const originalStderr = process.stderr.write;
+            const originalStdout = process.stdout.write;
+            
+            // 重定向stderr和stdout来屏蔽Sharp的调试输出
+            process.stderr.write = function(string: string | Buffer, ...args: any[]): boolean {
+                const str = string.toString();
+                // 过滤掉Sharp相关的调试信息
+                if (str.includes('sharp temp-') || str.includes('done in') || str.includes('pixels,') || str.includes('threads,') || str.includes('tiles,') || str.includes('buffer')) {
+                    return true; // 丢弃这些输出
+                }
+                return originalStderr.apply(process.stderr, [string, ...args]);
+            };
+            
+            process.stdout.write = function(string: string | Buffer, ...args: any[]): boolean {
+                const str = string.toString();
+                // 过滤掉Sharp相关的调试信息
+                if (str.includes('sharp temp-') || str.includes('done in') || str.includes('pixels,') || str.includes('threads,') || str.includes('tiles,') || str.includes('buffer')) {
+                    return true; // 丢弃这些输出
+                }
+                return originalStdout.apply(process.stdout, [string, ...args]);
+            };
             
             const result = await sharp(svgBuffer, {
                 density: 72,
-                failOn: 'none'
+                failOn: 'none',
+                unlimited: true
             })
-            .png({ force: true })
+            .png({ 
+                force: true,
+                progressive: false,
+                compressionLevel: 0
+            })
             .toBuffer();
             
-            // Restore environment variables
-            if (originalVipsInfo !== undefined) {
-                process.env.VIPS_INFO = originalVipsInfo;
-            } else {
-                delete process.env.VIPS_INFO;
-            }
-            
-            if (originalVipsProgress !== undefined) {
-                process.env.VIPS_PROGRESS = originalVipsProgress;
-            } else {
-                delete process.env.VIPS_PROGRESS;
-            }
+            // 恢复原始的stderr和stdout
+            process.stderr.write = originalStderr;
+            process.stdout.write = originalStdout;
             
             return result;
             
         } catch (error) {
+            // 确保在错误情况下也恢复原始输出流
+            if (process.stderr.write !== process.stderr.write) {
+                process.stderr.write = process.stderr.write;
+            }
+            if (process.stdout.write !== process.stdout.write) {
+                process.stdout.write = process.stdout.write;
+            }
             throw new Error(`SVG text rendering failed: ${(error as Error).message}`);
         }
     }

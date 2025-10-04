@@ -1,8 +1,8 @@
-# n8n-nodes-picEdit
+# n8n-nodes-picedit
 
 ![n8n](https://img.shields.io/badge/n8n-node-FF6D5A.svg)
-![npm version](https://img.shields.io/npm/v/n8n-nodes-picEdit.svg)
-![license](https://img.shields.io/npm/l/n8n-nodes-picEdit.svg)
+![npm version](https://img.shields.io/npm/v/n8n-nodes-picedit.svg)
+![license](https://img.shields.io/npm/l/n8n-nodes-picedit.svg)
 
 A powerful n8n community node for image processing and generation. Create canvases, add text overlays, and composite images with full binary data support. Built with Sharp.js for high-performance image processing without external dependencies.
 
@@ -26,14 +26,14 @@ A powerful n8n community node for image processing and generation. Create canvas
 Install via n8n's community nodes feature:
 
 1. Go to **Settings > Community Nodes**
-2. Enter the package name: `n8n-nodes-picEdit`
+2. Enter the package name: `n8n-nodes-picedit`
 3. Click **Install**
 
 ### Manual Installation
 
 ```bash
 # In your n8n installation directory
-npm install n8n-nodes-picEdit
+npm install n8n-nodes-picedit
 ```
 
 ### Prerequisites
@@ -191,7 +191,7 @@ npm run build
 ### Project Structure
 
 ```
-n8n-nodes-picEdit/
+n8n-nodes-picedit/
 ├── nodes/
 │   └── picEdit/
 │       ├── PicEdit.node.ts           # Main node implementation
@@ -335,7 +335,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - [n8n Community Nodes](https://docs.n8n.io/integrations/community-nodes/)
 - [GitHub Repository](https://github.com/hundred98/n8n-picEdit-node)
-- [npm Package](https://www.npmjs.com/package/n8n-nodes-picEdit)
+- [npm Package](https://www.npmjs.com/package/n8n-nodes-picedit)
 - [Issue Tracker](https://github.com/hundred98/n8n-picEdit-node/issues)
 
 ## 💬 Support

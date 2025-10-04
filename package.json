@@ -40,7 +40,9 @@
     "dev": "npx tsc --watch",
     "format": "prettier nodes credentials --write",
     "lint": "npx tslint -p tsconfig.json -c tslint.json",
-    "lintfix": "npx tslint -p tsconfig.json -c tslint.json --fix"
+    "lintfix": "npx tslint -p tsconfig.json -c tslint.json --fix",
+    "prepack": "npm run build",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "files": [
     "dist"

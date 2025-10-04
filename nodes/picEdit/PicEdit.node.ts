@@ -1,22 +1,24 @@
- import { IExecuteFunctions } from 'n8n-workflow';
+import { IExecuteFunctions } from 'n8n-workflow';
 import { INodeExecutionData, INodeType, INodeTypeDescription, NodeExecutionWithMetadata, NodeOperationError } from 'n8n-workflow';
 import * as path from 'path';
 import * as fs from 'fs';
 import csvParser = require('csv-parser');
 const sharp = require('sharp');
+
+sharp.simd(false);
+sharp.concurrency(1);
+
 import { SharpImageProcessor, CanvasConfig, TextConfig } from './SharpImageProcessor';
-
-
 
 export class PicEdit implements INodeType {
     description: INodeTypeDescription = {
-        displayName: 'Pic Edit',
+        displayName: 'PicEdit',
         name: 'picEdit',
         icon: 'file:picEdit.svg',
         group: ['transform'],
         version: 1,
         subtitle: '={{$parameter["operation"]}}',
-        description: 'Generate images with text and image overlays',
+        description: 'Create and edit images with text overlays and compositions',
         defaults: {
             name: 'PicEdit',
         },
