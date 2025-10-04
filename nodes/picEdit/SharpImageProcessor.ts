@@ -92,7 +92,7 @@ export class SharpImageProcessor {
     }
     
     /**
-     * Create text layer using Sharp SVG rendering (Canvas-free approach)
+     * Create text layer using optimized SVG with minimal warnings
      */
     private async createTextLayer(config: TextConfig, canvasWidth: number, canvasHeight: number): Promise<Buffer> {
         const { text, fontSize, color, position, rotation = 0, opacity = 255, fontPath } = config;
@@ -124,86 +124,30 @@ export class SharpImageProcessor {
             transformAttr = ` transform="rotate(${rotation} ${x} ${y})"`;
         }
         
-        // Create enhanced SVG with complete structure to minimize librsvg warnings
-        const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${canvasWidth}" height="${canvasHeight}" 
-     xmlns="http://www.w3.org/2000/svg" 
-     xmlns:xlink="http://www.w3.org/1999/xlink"
-     version="1.1"
-     viewBox="0 0 ${canvasWidth} ${canvasHeight}"
-     color-interpolation-filters="sRGB">
-  <defs>
-    <style type="text/css"><![CDATA[
-      .text-element { 
-        font-family: ${fontFamily}; 
-        font-style: normal;
-        font-weight: normal;
-        text-decoration: none;
-      }
-    ]]></style>
-    <metadata id="metadata">
-      <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-        <rdf:Description rdf:about="">
-          <dc:format xmlns:dc="http://purl.org/dc/elements/1.1/">image/svg+xml</dc:format>
-        </rdf:Description>
-      </rdf:RDF>
-    </metadata>
-  </defs>
-  <g id="text-layer" style="display:inline">
-    <text x="${x}" y="${y}" 
-          class="text-element"
-          font-size="${fontSize}" 
-          fill="${colorWithOpacity}"
-          text-rendering="geometricPrecision"
-          shape-rendering="geometricPrecision"
-          dominant-baseline="alphabetic"
-          text-anchor="start"${transformAttr}>${escapedText}</text>
-  </g>
+        // Create minimal SVG to reduce librsvg warnings
+        const svgContent = `<svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+  <text x="${x}" y="${y}" 
+        font-family="${fontFamily}" 
+        font-size="${fontSize}" 
+        fill="${colorWithOpacity}"${transformAttr}>${escapedText}</text>
 </svg>`;
         
         try {
-            // Convert SVG to PNG using Sharp with optimized settings
+            // Convert SVG to PNG using Sharp with minimal configuration to reduce warnings
             const svgBuffer = Buffer.from(svgContent, 'utf8');
             
-            // Suppress glib warnings by temporarily redirecting stderr (if possible)
-            // These warnings are non-fatal and come from librsvg internals
-            const originalConsoleError = console.error;
-            const suppressWarnings = (message: any, ...args: any[]) => {
-                const msgStr = String(message);
-                // Filter out specific glib/librsvg warnings
-                if (msgStr.includes('svgload_buffer')) {
-                // if (msgStr.includes('svgload_buffer') || 
-                    // msgStr.includes('stylesheet') || 
-                    // msgStr.includes('high_bitdepth')) {
-                    return; // Suppress these specific warnings
-                }
-                originalConsoleError(message, ...args);
-            };
+            // Use a simplified Sharp configuration that minimizes librsvg interactions
+            const result = await sharp(svgBuffer, {
+                density: 72,
+                failOn: 'none'  // Don't fail on warnings
+            })
+            .png({
+                compressionLevel: 6,
+                force: true
+            })
+            .toBuffer();
             
-            // Temporarily replace console.error
-            console.error = suppressWarnings;
-            
-            try {
-                const result = await sharp(svgBuffer, {
-                    density: 72,  // Explicit density
-                    unlimited: true,  // Allow large SVG processing
-                    sequentialRead: true  // Optimize memory usage
-                })
-                .png({
-                    compressionLevel: 6,
-                    adaptiveFiltering: false,
-                    palette: false,  // Disable palette optimization
-                    quality: 100,    // Maximum quality
-                    progressive: false,
-                    force: true      // Force PNG output
-                })
-                .toBuffer();
-                
-                return result;
-            } finally {
-                // Restore original console.error
-                console.error = originalConsoleError;
-            }
+            return result;
             
         } catch (error) {
             console.error('SVG rendering error:', error);

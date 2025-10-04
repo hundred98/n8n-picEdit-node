@@ -4,8 +4,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import csvParser = require('csv-parser');
 const sharp = require('sharp');
-const mimeTypes = require('mime-types');
-const { v4: uuidv4 } = require('uuid');
 import { SharpImageProcessor, CanvasConfig, TextConfig } from './SharpImageProcessor';
 
 

@@ -63,8 +63,16 @@ docs/
 
 # Keep essential files
 !dist/
-!nodes/
-!python/
 !LICENSE
 !package.json
 !README.md
+
+# Exclude source files (only keep compiled dist)
+nodes/
+python/
+src/
+tsconfig.json
+tslint.json
+
+# Exclude duplicate SVG files
+dist/picEdit/
