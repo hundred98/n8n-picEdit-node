@@ -14,7 +14,7 @@ export class PicEdit implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'Pic Edit',
         name: 'picEdit',
-        icon: 'file:picEdit/picEdit.svg',
+        icon: 'file:picEdit.svg',
         group: ['transform'],
         version: 1,
         subtitle: '={{$parameter["operation"]}}',
