@@ -344,6 +344,18 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - Join the [n8n Community](https://community.n8n.io/)
 - Check the [n8n Documentation](https://docs.n8n.io/)
 
+### 📱 WeChat Support | 微信支持
+
+For any questions or suggestions, feel free to follow my WeChat Official Account for technical support:
+
+如果您有任何问题或建议，欢迎关注我的微信公众号获取技术支持：
+
+<div align="center">
+  <img src="./assets/wechat-qr.jpg" alt="WeChat QR Code" width="200"/>
+  <br>
+  <em>Scan QR Code to Follow | 扫码关注微信公众号</em>
+</div>
+
 ---
 
 Made with ❤️ for the n8n community

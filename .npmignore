@@ -66,6 +66,7 @@ docs/
 !LICENSE
 !package.json
 !README.md
+!assets/
 
 # Exclude source files (only keep compiled dist)
 nodes/
