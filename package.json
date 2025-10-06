@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-picedit",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A powerful n8n community node for image processing and generation. Create canvases, add text overlays, and composite images with full binary data support.",
   "keywords": [
     "n8n-community-node-package",
