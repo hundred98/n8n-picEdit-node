@@ -539,12 +539,21 @@ export class PicEdit implements INodeType {
                 const binaryResult = await convertToBinary.call(this, i, result);
                 const fieldName = this.getNodeParameter('fieldName', i) as string;
 
-                const finalItem: INodeExecutionData = {
-                    json: {
+                // Preserve input JSON data and add PicEdit processing results
+                const inputJson = items[i].json || {};
+                const picEditResults = {
+                    picEdit: {
                         success: true,
                         message: result?.message || 'Canvas created and converted to binary successfully',
                         fileInfo: binaryResult.fileInfo,
                         debug: result?.debug || undefined
+                    }
+                };
+
+                const finalItem: INodeExecutionData = {
+                    json: {
+                        ...inputJson,  // Preserve all input JSON data
+                        ...picEditResults  // Add PicEdit processing results
                     },
                     binary: {
                         [fieldName]: {
