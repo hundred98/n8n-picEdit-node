@@ -10,7 +10,7 @@ process.env.VIPS_DISC_THRESHOLD = '0';
 process.env.VIPS_NOVECTOR = '1';
 process.env.VIPS_OPERATION_BLOCK = '1';
 
-import sharp from 'sharp';
+const sharp = require('sharp');
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -51,7 +51,7 @@ export class SharpImageProcessor {
             const bgColor = this.parseColor(backgroundColor || '#FFFFFF');
             
             // Create base canvas
-            let canvas: sharp.Sharp;
+            let canvas: any;
             
             if (backgroundImageData) {
                 // Handle background image
