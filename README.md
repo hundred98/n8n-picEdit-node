@@ -68,17 +68,25 @@ Add text overlays to your canvas with extensive customization options.
 
 **Text Properties:**
 - Position (X, Y coordinates)
-- Font size and family
+- Font size and type selection
 - Color (hex format)
 - Rotation angle
 - Opacity (0-255)
 
-**CSV Format:**
+**Font Selection:**
+- **System Fonts**: Choose from 58 comprehensive Windows fonts (Arial, Times New Roman, Segoe UI, etc.)
+- **Custom Fonts**: Use custom font files or font family names
+- **Smart Fallback**: Automatic fallback to sans-serif if font unavailable
+
+**CSV Format (Updated):**
 ```csv
-text,position_x,position_y,font_size,color,font_name,rotation,opacity
-Hello World,100,50,36,#FF0000,Arial,0,255
-Welcome,200,120,28,#0066CC,Microsoft YaHei,15,230
+text,position_x,position_y,font_size,color,font_type,font_value,rotation,opacity
+Hello World,100,50,36,#FF0000,system,Arial,0,255
+Welcome,200,120,28,#0066CC,system,Microsoft YaHei,15,230
+Custom Font,300,180,24,#009900,custom,/fonts/custom.ttf,0,255
 ```
+
+**Backward Compatibility:** The node maintains compatibility with the old CSV format using `font_name` column.
 
 ### Add Image
 
@@ -157,10 +165,36 @@ Choose from multiple output formats:
 
 ### Font Management
 
-The node supports various font sources:
-- System fonts by name (Arial, Times New Roman)
-- Font file paths (./fonts/custom.ttf)
-- Fallback to default fonts if specified font unavailable
+**Enhanced Font Selection System (v0.1.4+)**
+
+The node now features a comprehensive font selection system:
+
+**Font Type Selection:**
+- **System Fonts**: Choose from 58 comprehensive Windows fonts including:
+  - **Basic Fonts**: Arial, Times New Roman, Courier New, Verdana, Georgia, Tahoma, Impact
+  - **Modern Fonts**: Segoe UI, Calibri, Cambria, Candara, Corbel, Constantia, Bahnschrift
+  - **Monospace Fonts**: Consolas, Lucida Console, Cascadia Code, Cascadia Mono
+  - **Script/Decorative**: Comic Sans MS, Trebuchet MS, Gabriola, Ink Free, Segoe Print, Segoe Script
+  - **International**: Microsoft YaHei, SimHei, SimSun, DengXian, FangSong, KaiTi, Noto Sans SC
+  - **UI Fonts**: Segoe UI, Microsoft Sans Serif, Leelawadee UI, Nirmala UI, Malgun Gothic
+  - **Symbol Fonts**: Segoe UI Emoji, Segoe UI Symbol, Symbol, Webdings, Wingdings
+
+- **Custom Fonts**: Use custom font files or font family names
+  - Font file paths (./fonts/custom.ttf, ./fonts/custom.otf)
+  - Font family names for web-safe fonts
+  - Automatic fallback to system fonts if custom font unavailable
+
+**Font Rendering Features:**
+- Proper CSS font-family syntax with fallbacks
+- SVG-based text rendering for precise typography
+- Support for font weights and styles
+- Unicode and emoji character support
+- Cross-platform font compatibility
+
+**Smart Fallback System:**
+- Automatic fallback to sans-serif if specified font unavailable
+- Font file validation and error handling
+- Console warnings for missing custom fonts
 
 ### Error Handling
 
@@ -312,6 +346,18 @@ Contributions are welcome! Please:
 5. Submit a pull request
 
 ## 📝 Changelog
+
+### v0.1.4
+- **Enhanced Font Selection System**: Comprehensive font type selection with 58 Windows fonts
+- **Font Type UI**: Added hierarchical font selection menu (System Font / Custom Font)
+- **System Font Support**: 58 comprehensive Windows fonts including Arial, Times New Roman, Segoe UI, Calibri, etc.
+- **Custom Font Support**: Path-based custom font loading with fallback mechanisms
+- **Updated CSV Format**: Added `font_type` and `font_value` columns for advanced font control
+- **Backward Compatibility**: Maintains compatibility with old CSV format using `font_name` column
+- **Font Rendering Fix**: Resolved font visibility issues with proper SVG font-family attributes
+- **Documentation**: Added comprehensive font feature documentation and examples
+- **Sample Files**: Added sample configuration files and system font detection script
+- **Code Cleanup**: Removed test files and improved code organization
 
 ### v0.1.0
 - Initial release with Sharp.js architecture
