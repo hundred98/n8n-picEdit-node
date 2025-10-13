@@ -133,9 +133,48 @@ export class SharpImageProcessor {
         // Escape text for SVG
         const escapedText = this.escapeXmlText(text);
         
-        // Use system font (custom fonts not supported in this implementation)
-        const fontFamily = 'Arial, sans-serif';
-        
+        // Use specified font or default to Arial
+        let fontFamily = 'Arial, sans-serif';
+        if (fontPath) {
+            // Debug logging
+            console.log(`Font Debug - Processing fontPath: ${fontPath}`);
+            
+            // For system fonts, use the font name directly with proper CSS font-family syntax
+            const systemFonts = [
+                'Arial', 'Arial Black', 'Bahnschrift', 'Calibri', 'Cambria', 'Candara',
+                'Cascadia Code', 'Cascadia Mono', 'Comic Sans MS', 'Consolas', 'Constantia',
+                'Corbel', 'Courier New', 'DengXian', 'Ebrima', 'FangSong', 'Franklin Gothic Medium',
+                'Gabriola', 'Gadugi', 'Georgia', 'Impact', 'Ink Free', 'Javanese Text',
+                'KaiTi', 'Leelawadee UI', 'Lucida Console', 'Lucida Sans Unicode', 'Malgun Gothic',
+                'Microsoft Himalaya', 'Microsoft JhengHei', 'Microsoft New Tai Lue', 'Microsoft PhagsPa',
+                'Microsoft Sans Serif', 'Microsoft Tai Le', 'Microsoft YaHei', 'Microsoft Yi Baiti',
+                'Mongolian Baiti', 'MS Gothic', 'MV Boli', 'Myanmar Text', 'Nirmala UI',
+                'Segoe UI Emoji', 'Segoe UI Historic', 'Segoe UI Symbol', 'SimHei', 'SimSun',
+                'Sitka Text', 'Sylfaen', 'Symbol', 'Tahoma', 'Times New Roman', 'Trebuchet MS',
+            ];
+            
+            if (systemFonts.includes(fontPath)) {
+                // Use proper CSS font-family syntax with fallbacks
+                if (fontPath.includes(' ')) {
+                    // Wrap with single quotes if name contains spaces
+                    fontFamily = `'${fontPath}', sans-serif`;
+                } else {
+                    fontFamily = `${fontPath}, sans-serif`;
+                }
+                console.log(`Font Debug - Using system font: ${fontFamily}`);
+            } else {
+                // For custom fonts, check if it's a file path or font name
+                if (fontPath.includes('/') || fontPath.includes('\\') || fontPath.includes('.ttf') || fontPath.includes('.otf')) {
+                    // This is a file path - for now use fallback
+                    fontFamily = 'Arial, sans-serif';
+                    console.warn(`Custom font file path specified but file loading not implemented: ${fontPath}. Using Arial as fallback.`);
+                } else {
+                    // Treat as font family name
+                    fontFamily = fontPath.includes(' ') ? `'${fontPath}', sans-serif` : `${fontPath}, sans-serif`;
+                    console.log(`Font Debug - Using custom font family: ${fontFamily}`);
+                }
+            }
+        }
         // Calculate text positioning
         const x = position[0];
         const y = position[1] + fontSize;

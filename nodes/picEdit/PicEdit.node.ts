@@ -1,4 +1,4 @@
-import { IExecuteFunctions } from 'n8n-workflow';
+  import { IExecuteFunctions, ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 import { INodeExecutionData, INodeType, INodeTypeDescription, NodeExecutionWithMetadata, NodeOperationError } from 'n8n-workflow';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -291,6 +291,77 @@ export class PicEdit implements INodeType {
                 description: 'Y position of the text',
             },
             {
+                displayName: 'Font Type',
+                name: 'fontType',
+                type: 'options',
+                options: [
+                    {
+                        name: 'System Font',
+                        value: 'system',
+                    },
+                    {
+                        name: 'Custom Font',
+                        value: 'custom',
+                    },
+                ],
+                default: 'system',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'addText',
+                        ],
+                        textSource: [
+                            'manual',
+                        ],
+                    },
+                },
+                description: 'Choose between system fonts or custom font',
+            },
+            {
+                displayName: 'System Font',
+                name: 'systemFont',
+                type: 'options',
+                typeOptions: {
+                    loadOptionsMethod: 'getSystemFonts',
+                },
+                default: 'Arial',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'addText',
+                        ],
+                        textSource: [
+                            'manual',
+                        ],
+                        fontType: [
+                            'system',
+                        ],
+                    },
+                },
+                description: 'Select a system font',
+            },
+            {
+                displayName: 'Custom Font',
+                name: 'customFont',
+                type: 'string',
+                default: '',
+                placeholder: '/path/to/font/CustomFont.ttf or font-family-name',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'addText',
+                        ],
+                        textSource: [
+                            'manual',
+                        ],
+                        fontType: [
+                            'custom',
+                        ],
+                    },
+                },
+                description: 'Path to custom font file or font family name',
+            },
+            {
                 displayName: 'Font Size',
                 name: 'fontSize',
                 type: 'number',
@@ -327,23 +398,7 @@ export class PicEdit implements INodeType {
                 default: '#000000',
                 description: 'Text color',
             },
-            {
-                displayName: 'Font Name',
-                name: 'fontName',
-                type: 'string',
-                displayOptions: {
-                    show: {
-                        operation: [
-                            'addText',
-                        ],
-                        textSource: [
-                            'manual',
-                        ],
-                    },
-                },
-                default: '',
-                description: 'Font name (leave empty for default font)',
-            },
+
             {
                 displayName: 'Rotation',
                 name: 'rotationAngle',
@@ -419,7 +474,7 @@ export class PicEdit implements INodeType {
                     },
                 },
                 default: '',
-                description: 'CSV format: text,position_x,position_y,font_size,color,font_name,rotation,opacity. First row should contain headers.',
+                description: 'CSV format: text,position_x,position_y,font_size,color,font_type,font_value,rotation,opacity. First row should contain headers. font_type: "system" or "custom", font_value: system font name or custom font path.',
             },
 
             // Add Image
@@ -519,6 +574,56 @@ export class PicEdit implements INodeType {
         ],
     };
 
+    methods = {
+        loadOptions: {
+            async getSystemFonts(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+                try {
+                    // 使用简单的系统字体列表，避免依赖外部库
+                    const systemFonts = [
+                        'Arial', 'Arial Black', 'Arial Narrow', 'Arial Rounded MT Bold',
+                        'Bahnschrift', 'Calibri', 'Cambria', 'Cambria Math',
+                        'Candara', 'Comic Sans MS', 'Consolas', 'Constantia',
+                        'Corbel', 'Courier New', 'Ebrima', 'Franklin Gothic Medium',
+                        'Gabriola', 'Gadugi', 'Georgia', 'HoloLens MDL2 Assets',
+                        'Impact', 'Ink Free', 'Javanese Text', 'Leelawadee UI',
+                        'Lucida Console', 'Lucida Sans Unicode', 'Malgun Gothic',
+                        'Marlett', 'Microsoft Himalaya', 'Microsoft JhengHei',
+                        'Microsoft New Tai Lue', 'Microsoft PhagsPa', 'Microsoft Sans Serif',
+                        'Microsoft Tai Le', 'Microsoft YaHei', 'Microsoft Yi Baiti',
+                        'MingLiU-ExtB', 'Mongolian Baiti', 'MS Gothic', 'MV Boli',
+                        'Myanmar Text', 'Nirmala UI', 'Palatino Linotype', 'Segoe MDL2 Assets',
+                        'Segoe Print', 'Segoe Script', 'Segoe UI', 'Segoe UI Historic',
+                        'Segoe UI Emoji', 'Segoe UI Symbol', 'SimSun', 'Sitka',
+                        'Sylfaen', 'Symbol', 'Tahoma', 'Times New Roman',
+                        'Trebuchet MS', 'Verdana', 'Webdings', 'Wingdings',
+                        'Yu Gothic'
+                    ];
+                    
+                    // 转换为n8n选项格式
+                    const fontOptions: INodePropertyOptions[] = systemFonts
+                        .map(font => ({ name: font, value: font }))
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                    
+                    return fontOptions;
+                } catch (error) {
+                    // 回退到默认字体列表
+                    return [
+                        { name: 'Arial', value: 'Arial' },
+                        { name: 'Times New Roman', value: 'Times New Roman' },
+                        { name: 'Courier New', value: 'Courier New' },
+                        { name: 'Verdana', value: 'Verdana' },
+                        { name: 'Georgia', value: 'Georgia' },
+                        { name: 'Trebuchet MS', value: 'Trebuchet MS' },
+                        { name: 'Comic Sans MS', value: 'Comic Sans MS' },
+                        { name: 'Impact', value: 'Impact' },
+                        { name: 'Tahoma', value: 'Tahoma' },
+                        { name: 'Lucida Console', value: 'Lucida Console' },
+                    ];
+                }
+            }
+        }
+    };
+
     async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][] | NodeExecutionWithMetadata[][] | null> {
         const items = this.getInputData();
         const operation = this.getNodeParameter('operation', 0) as string;
@@ -587,6 +692,7 @@ export class PicEdit implements INodeType {
         return [returnItems];
     }
 }
+
 
 async function createCanvas(this: IExecuteFunctions, itemIndex: number): Promise<any> {
     const canvasType = this.getNodeParameter('canvasType', itemIndex) as string;
@@ -679,7 +785,17 @@ async function addText(this: IExecuteFunctions, itemIndex: number, inputData: an
         let resultBuffer = canvasBuffer;
         
         if (textSource === 'manual') {
-            const fontName = this.getNodeParameter('fontName', itemIndex) as string;
+            const fontType = this.getNodeParameter('fontType', itemIndex) as string;
+            let fontPath: string | undefined = undefined;
+            
+            if (fontType === 'system') {
+                const systemFont = this.getNodeParameter('systemFont', itemIndex) as string;
+                fontPath = systemFont;
+            } else if (fontType === 'custom') {
+                const customFont = this.getNodeParameter('customFont', itemIndex) as string;
+                fontPath = customFont;
+            }
+            
             const textConfig: TextConfig = {
                 text: this.getNodeParameter('text', itemIndex) as string,
                 fontSize: this.getNodeParameter('fontSize', itemIndex) as number,
@@ -690,7 +806,7 @@ async function addText(this: IExecuteFunctions, itemIndex: number, inputData: an
                 ],
                 rotation: this.getNodeParameter('rotationAngle', itemIndex) as number,
                 opacity: this.getNodeParameter('opacity', itemIndex) as number,
-                fontPath: fontName ? fontName : undefined,
+                fontPath: fontPath,
             };
             
             resultBuffer = await processor.addText(resultBuffer, textConfig);
@@ -850,6 +966,17 @@ async function parseCsvFile(filePath: string): Promise<any[]> {
         require('fs').createReadStream(filePath, { encoding: 'utf8' })
             .pipe(csvParser())
             .on('data', (row: any) => {
+                // Determine font path based on font_type and font_value
+                let fontPath: string | undefined = undefined;
+                const fontType = row.font_type || 'system';
+                const fontValue = row.font_value || row.font_name || 'Arial'; // Backward compatibility with old font_name column
+                
+                if (fontType === 'system') {
+                    fontPath = fontValue;
+                } else if (fontType === 'custom') {
+                    fontPath = fontValue;
+                }
+                
                 elements.push({
                     type: 'text',
                     position: [
@@ -859,7 +986,7 @@ async function parseCsvFile(filePath: string): Promise<any[]> {
                     text: row.text || '',
                     fontSize: parseInt(row.font_size) || 24,
                     color: row.color || '#000000',
-                    fontName: row.font_name || undefined,
+                    fontName: fontPath,
                     rotation: parseFloat(row.rotation) || 0,
                     opacity: parseInt(row.opacity) || 255
                 });
@@ -1021,3 +1148,4 @@ async function convertToBinary(this: IExecuteFunctions, itemIndex: number, canva
         fileInfo: fileInfo
     };
 }
+

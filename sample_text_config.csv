@@ -1,0 +1,5 @@
+text,position_x,position_y,font_size,color,font_type,font_value,rotation,opacity
+Hello World,100,100,24,#000000,system,Arial,0,255
+Custom Text,200,200,32,#FF0000,system,Times New Roman,15,200
+Special Font,300,300,28,#0000FF,custom,/path/to/custom/font.ttf,0,255
+Another Line,150,400,20,#00FF00,system,Verdana,-10,180
